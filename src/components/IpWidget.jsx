@@ -189,39 +189,47 @@ export default function IpWidget() {
         </button>
       </div>
 
-      <div className="space-y-1 font-mono text-[11px]" dir="ltr">
+      <div className="space-y-1.5 font-mono text-[10.5px]" dir="ltr">
         {/* Service 1 (Network / Iran) */}
         <div 
-          className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap" 
-          title={info1 ? `${info1.ip} ${info1.text}` : 'سرویس اول'}
+          className="overflow-hidden" 
+          title={info1 ? `${info1.ip} - ${info1.text}` : 'سرویس اول'}
         >
-          <span className="text-sm select-none shrink-0">{info1?.flag || '🌐'}</span>
           {ip1.loading ? (
-            <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی...</span>
+            <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی شبکه...</span>
           ) : ip1.error ? (
             <span className="text-red-400 text-[10px] font-sans">خطای سرویس شبکه</span>
           ) : (
             <>
-              <span className="font-bold text-emerald-400 shrink-0">{info1?.ip}</span>
-              <span className="text-gray-300 truncate">{info1?.text}</span>
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="text-xs select-none shrink-0">{info1?.flag || '🌐'}</span>
+                <span className="font-bold text-emerald-400 truncate">{info1?.ip}</span>
+              </div>
+              <div className="text-[9px] text-gray-300 truncate mt-0.5" title={info1?.text}>
+                {info1?.text}
+              </div>
             </>
           )}
         </div>
 
         {/* Service 2 (Foreign / Proxy) */}
         <div 
-          className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap" 
-          title={info2 ? `${info2.ip} ${info2.text}` : 'سرویس دوم'}
+          className="overflow-hidden pt-1 border-t border-white/10" 
+          title={info2 ? `${info2.ip} - ${info2.text}` : 'سرویس دوم'}
         >
-          <span className="text-sm select-none shrink-0">{info2?.flag || '🌐'}</span>
           {ip2.loading ? (
-            <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی...</span>
+            <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی خارجی...</span>
           ) : ip2.error ? (
             <span className="text-red-400 text-[10px] font-sans">خطای سرویس خارجی</span>
           ) : (
             <>
-              <span className="font-bold text-sky-400 shrink-0">{info2?.ip}</span>
-              <span className="text-gray-300 truncate">{info2?.text}</span>
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="text-xs select-none shrink-0">{info2?.flag || '🌐'}</span>
+                <span className="font-bold text-sky-400 truncate">{info2?.ip}</span>
+              </div>
+              <div className="text-[9px] text-gray-300 truncate mt-0.5" title={info2?.text}>
+                {info2?.text}
+              </div>
             </>
           )}
         </div>

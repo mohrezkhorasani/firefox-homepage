@@ -21,11 +21,11 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 z-50 p-2.5 bg-black/60 backdrop-blur-md border-t border-r border-white/10 rounded-tr-2xl shadow-2xl flex flex-col gap-2 max-w-[95vw] sm:max-w-[420px]">
+      <div className="fixed bottom-0 left-0 z-50 p-2.5 bg-black/70 backdrop-blur-md border-t border-r border-white/10 rounded-tr-2xl shadow-2xl flex flex-col gap-2 w-[215px]">
         {/* Simple IP Widget directly above navigation menu */}
         <IpWidget />
 
-        <div className="grid grid-cols-2 gap-1.5 min-w-[200px]">
+        <div className="grid grid-cols-2 gap-1.5 w-full">
           {pages.map((p) => {
             const isActive = activePage === p.id;
             const isHome = p.id === 'home';
