@@ -7,6 +7,7 @@ import TagFilter from './components/TagFilter';
 import BottomNav from './components/BottomNav';
 import ToolsPage from './components/ToolsPage';
 import TodoWidget from './components/TodoWidget';
+import MarketWidget from './components/MarketWidget';
 import { DEFAULT_BOOKMARKS } from './data/defaultBookmarks';
 import { DEFAULT_TAGS } from './data/defaultTags';
 
@@ -159,10 +160,11 @@ export default function App() {
               />
             </div>
 
-            {/* Sidebar (Right 1 col: IP & Todo) */}
+            {/* Sidebar (Right 1 col: IP & Todo & Bourse) */}
             <div className="space-y-6">
               <IpWidget />
               <TodoWidget />
+              <MarketWidget />
             </div>
           </>
         )}
