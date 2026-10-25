@@ -192,8 +192,8 @@ export default function IpWidget() {
       <div className="space-y-1.5 font-mono text-[10.5px]" dir="ltr">
         {/* Service 1 (Network / Iran) */}
         <div 
-          className="overflow-hidden" 
-          title={info1 ? `${info1.ip} - ${info1.text}` : 'سرویس اول'}
+          className="overflow-hidden cursor-help" 
+          title="آی پی اصلی شما"
         >
           {ip1.loading ? (
             <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی شبکه...</span>
@@ -201,11 +201,11 @@ export default function IpWidget() {
             <span className="text-red-400 text-[10px] font-sans">خطای سرویس شبکه</span>
           ) : (
             <>
-              <div className="flex items-center gap-1.5 leading-none">
+              <div className="flex items-center gap-1.5 leading-none" title="آی پی اصلی شما">
                 <span className="text-xs select-none shrink-0">{info1?.flag || '🌐'}</span>
                 <span className="font-bold text-emerald-400 truncate">{info1?.ip}</span>
               </div>
-              <div className="text-[9px] text-gray-300 truncate mt-0.5" title={info1?.text}>
+              <div className="text-[9px] text-gray-300 truncate mt-0.5" title="آی پی اصلی شما">
                 {info1?.text}
               </div>
             </>
@@ -214,8 +214,8 @@ export default function IpWidget() {
 
         {/* Service 2 (Foreign / Proxy) */}
         <div 
-          className="overflow-hidden pt-1 border-t border-white/10" 
-          title={info2 ? `${info2.ip} - ${info2.text}` : 'سرویس دوم'}
+          className="overflow-hidden pt-1 border-t border-white/10 cursor-help" 
+          title="آی پی روت پروفایل HAPP"
         >
           {ip2.loading ? (
             <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی خارجی...</span>
@@ -223,11 +223,11 @@ export default function IpWidget() {
             <span className="text-red-400 text-[10px] font-sans">خطای سرویس خارجی</span>
           ) : (
             <>
-              <div className="flex items-center gap-1.5 leading-none">
+              <div className="flex items-center gap-1.5 leading-none" title="آی پی روت پروفایل HAPP">
                 <span className="text-xs select-none shrink-0">{info2?.flag || '🌐'}</span>
                 <span className="font-bold text-sky-400 truncate">{info2?.ip}</span>
               </div>
-              <div className="text-[9px] text-gray-300 truncate mt-0.5" title={info2?.text}>
+              <div className="text-[9px] text-gray-300 truncate mt-0.5" title="آی پی روت پروفایل HAPP">
                 {info2?.text}
               </div>
             </>
