@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
-import IpWidget from './components/IpWidget';
 import BookmarkGrid from './components/BookmarkGrid';
 import BookmarkModal from './components/BookmarkModal';
 import TagFilter from './components/TagFilter';
@@ -160,11 +159,10 @@ export default function App() {
               />
             </div>
 
-            {/* Sidebar (Right 1 col: IP & Todo & Bourse) */}
+            {/* Sidebar (Right 1 col: Market & Todo) */}
             <div className="space-y-6">
-              <IpWidget />
-              <TodoWidget />
               <MarketWidget />
+              <TodoWidget />
             </div>
           </>
         )}

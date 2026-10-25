@@ -46,6 +46,42 @@ function getCountryFlag(countryCode) {
   );
 }
 
+// Format: [logo] 5.10.248.107 Iran (IR) - Tehran - منطقه - ISP
+function formatIpDetails(data, defaultCountry = '') {
+  if (!data) return null;
+  const ip = data.query || data.ip || '-';
+  const country = data.country || data.country_name || defaultCountry || '-';
+  const code = (data.countryCode || data.country_code || (defaultCountry === 'Iran' ? 'IR' : '')).toUpperCase();
+  const city = data.city || '';
+  const region = data.regionName || data.region || '';
+  const isp = data.isp || data.org || data.organization || data.connection?.isp || '';
+
+  const parts = [];
+  if (country && code) {
+    parts.push(`${country} (${code})`);
+  } else if (country) {
+    parts.push(country);
+  }
+
+  if (city && city !== '-' && city !== 'null') {
+    parts.push(city);
+  }
+
+  if (region && region !== '-' && region !== 'null' && region !== city) {
+    parts.push(region);
+  }
+
+  if (isp && isp !== '-' && isp !== 'null') {
+    parts.push(isp);
+  }
+
+  return {
+    ip,
+    flag: getCountryFlag(code),
+    text: parts.join(' - ')
+  };
+}
+
 export default function IpWidget() {
   const [ip1, setIp1] = useState({ loading: true, data: null, error: false });
   const [ip2, setIp2] = useState({ loading: true, data: null, error: false });
@@ -59,28 +95,58 @@ export default function IpWidget() {
     fetchForeignIp();
   }
 
+  // Service 1: Network / Iran IP (with domestic fallbacks)
   async function fetchIranIp() {
     setIp1({ loading: true, data: null, error: false });
+    
+    // Primary: ipmyp.ir (domestic Iran service)
     try {
       const data = await fetchJSONP('https://api.ipmyp.ir/json');
       if (data && (data.query || data.ip)) {
         setIp1({ loading: false, data, error: false });
-      } else {
-        setIp1({ loading: false, data: null, error: true });
+        return;
       }
-    } catch {
-      try {
-        const res = await fetch('https://telbot.hekmateislami.com/fext/ip.php');
+    } catch {}
+
+    // Fallback 1: ipwho.is (direct network lookup with full details)
+    try {
+      const res = await fetch('https://ipwho.is/');
+      if (res.ok) {
         const data = await res.json();
-        if (data && (data.query || data.ip)) {
+        if (data && data.success !== false && (data.ip || data.query)) {
+          setIp1({
+            loading: false,
+            data: {
+              query: data.ip,
+              country: data.country,
+              countryCode: data.country_code,
+              city: data.city,
+              regionName: data.region,
+              isp: data.connection?.isp || data.isp
+            },
+            error: false
+          });
+          return;
+        }
+      }
+    } catch {}
+
+    // Fallback 2: api.ip.sb/geoip
+    try {
+      const res = await fetch('https://api.ip.sb/geoip');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.ip || data.query)) {
           setIp1({ loading: false, data, error: false });
           return;
         }
-      } catch {}
-      setIp1({ loading: false, data: null, error: true });
-    }
+      }
+    } catch {}
+
+    setIp1({ loading: false, data: null, error: true });
   }
 
+  // Service 2: Foreign / Proxy IP
   async function fetchForeignIp() {
     setIp2({ loading: true, data: null, error: false });
     try {
@@ -89,7 +155,7 @@ export default function IpWidget() {
         const res = await fetch('https://api.ip.sb/geoip');
         if (res.ok) data = await res.json();
       } catch {
-        const fallback = await fetch('https://ipwho.is/');
+        const fallback = await fetch('https://ipwhois.app/json/');
         if (fallback.ok) data = await fallback.json();
       }
 
@@ -103,69 +169,62 @@ export default function IpWidget() {
     }
   }
 
-  const ip1Val = ip1.data?.query || ip1.data?.ip;
-  const ip1CountryCode = ip1.data?.countryCode || ip1.data?.country_code || 'IR';
-  const ip1Flag = getCountryFlag(ip1CountryCode);
-
-  const ip2Val = ip2.data?.ip || ip2.data?.query;
-  const ip2CountryCode = ip2.data?.country_code || ip2.data?.countryCode || '';
-  const ip2Flag = getCountryFlag(ip2CountryCode);
+  const info1 = formatIpDetails(ip1.data, 'Iran');
+  const info2 = formatIpDetails(ip2.data, '');
 
   return (
-    <div className="glass rounded-2xl p-5 border border-white/20">
-      <div className="flex items-center justify-between border-b border-white/20 pb-2 mb-4">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <i className="fas fa-network-wired text-cyan-400"></i>
-          <span>اطلاعات IP شما</span>
-        </h2>
+    <div className="bg-black/40 rounded-xl p-2 border border-white/10 text-xs shadow-inner">
+      <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-white/10">
+        <span className="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5" dir="rtl">
+          <i className="fas fa-network-wired text-[10px]"></i>
+          <span>آی‌پی شبکه</span>
+        </span>
         <button
           onClick={fetchAll}
           disabled={ip1.loading || ip2.loading}
-          className="text-gray-400 hover:text-white p-1 rounded transition disabled:opacity-50"
-          title="بروزرسانی"
+          className="text-gray-400 hover:text-white p-0.5 rounded transition disabled:opacity-50"
+          title="بروزرسانی آی‌پی‌ها"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${(ip1.loading || ip2.loading) ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3 h-3 ${(ip1.loading || ip2.loading) ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      {/* Widget 1: Iranian */}
-      <div className="mb-4 bg-black/30 p-3 rounded-lg text-sm" id="ip-widget-1">
-        <p className="text-gray-400 mb-1">سرویس اول (ایرانی):</p>
-        {ip1.loading ? (
-          <p className="text-gray-300 animate-pulse">در حال دریافت اطلاعات...</p>
-        ) : ip1.error ? (
-          <p className="text-red-400">عدم دسترسی به سرویس ایرانی</p>
-        ) : (
-          <div>
-            <p className="text-green-400 font-bold font-mono flex items-center gap-2" dir="ltr">
-              <span className="text-base select-none" title={ip1.data?.country || 'Iran'}>{ip1Flag}</span>
-              <span>IP: {ip1Val}</span>
-            </p>
-            <p>کشور: {ip1.data?.country || 'ایران'} ({ip1CountryCode})</p>
-            <p>شهر: {ip1.data?.city || '-'} - منطقه: {ip1.data?.regionName || ip1.data?.region || '-'}</p>
-            <p>ISP: {ip1.data?.isp || ip1.data?.org || '-'}</p>
-          </div>
-        )}
-      </div>
+      <div className="space-y-1 font-mono text-[11px]" dir="ltr">
+        {/* Service 1 (Network / Iran) */}
+        <div 
+          className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap" 
+          title={info1 ? `${info1.ip} ${info1.text}` : 'سرویس اول'}
+        >
+          <span className="text-sm select-none shrink-0">{info1?.flag || '🌐'}</span>
+          {ip1.loading ? (
+            <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی...</span>
+          ) : ip1.error ? (
+            <span className="text-red-400 text-[10px] font-sans">خطای سرویس شبکه</span>
+          ) : (
+            <>
+              <span className="font-bold text-emerald-400 shrink-0">{info1?.ip}</span>
+              <span className="text-gray-300 truncate">{info1?.text}</span>
+            </>
+          )}
+        </div>
 
-      {/* Widget 2: Foreign */}
-      <div className="bg-black/30 p-3 rounded-lg text-sm" id="ip-widget-2">
-        <p className="text-gray-400 mb-1">سرویس دوم (خارجی):</p>
-        {ip2.loading ? (
-          <p className="text-gray-300 animate-pulse">در حال دریافت اطلاعات...</p>
-        ) : ip2.error ? (
-          <p className="text-red-400">عدم دسترسی به سرویس خارجی</p>
-        ) : (
-          <div>
-            <p className="text-blue-400 font-bold font-mono flex items-center gap-2" dir="ltr">
-              <span className="text-base select-none" title={ip2.data?.country || ip2.data?.country_name || ''}>{ip2Flag}</span>
-              <span>IP: {ip2Val}</span>
-            </p>
-            <p>کشور: {ip2.data?.country || ip2.data?.country_name || '-'} ({ip2CountryCode || '-'})</p>
-            <p>شهر: {ip2.data?.city || '-'} - منطقه: {ip2.data?.region || ip2.data?.regionName || '-'}</p>
-            <p>ISP: {ip2.data?.isp || ip2.data?.organization || '-'}</p>
-          </div>
-        )}
+        {/* Service 2 (Foreign / Proxy) */}
+        <div 
+          className="flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap" 
+          title={info2 ? `${info2.ip} ${info2.text}` : 'سرویس دوم'}
+        >
+          <span className="text-sm select-none shrink-0">{info2?.flag || '🌐'}</span>
+          {ip2.loading ? (
+            <span className="text-gray-400 animate-pulse text-[10px] font-sans">در حال بررسی...</span>
+          ) : ip2.error ? (
+            <span className="text-red-400 text-[10px] font-sans">خطای سرویس خارجی</span>
+          ) : (
+            <>
+              <span className="font-bold text-sky-400 shrink-0">{info2?.ip}</span>
+              <span className="text-gray-300 truncate">{info2?.text}</span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
