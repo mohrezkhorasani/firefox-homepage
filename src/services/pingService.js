@@ -1,6 +1,6 @@
 /**
  * Ping helper service
- * Communicates with backend /api/ping (ICMP + TCP Port Probing for RDP/Web/SMB)
+ * Communicates with backend /api/ping (ICMP + TCP Port Probing + Sanction Check)
  * with graceful browser fetch fallback for public domains.
  */
 
@@ -16,13 +16,13 @@ export function cleanHost(rawHost) {
 export async function pingHost(rawHost) {
   const host = cleanHost(rawHost);
   if (!host) {
-    return { online: false, time: null };
+    return { online: false, sanctioned: false, time: null };
   }
 
-  // 1. Try local Vite dev server ping API (which supports ICMP + TCP port probing)
+  // 1. Try local Vite dev server ping API (which supports ICMP, TCP probing and sanction detection)
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
     const res = await fetch(`/api/ping?host=${encodeURIComponent(host)}`, {
       signal: controller.signal,
@@ -34,11 +34,14 @@ export async function pingHost(rawHost) {
       const data = await res.json();
       return {
         online: Boolean(data.online),
+        sanctioned: Boolean(data.sanctioned),
+        method: data.method,
+        port: data.port,
         time: typeof data.time === 'number' ? data.time : null
       };
     }
   } catch (err) {
-    // Vite /api/ping unavailable or timed out; fall through to browser fallback
+    // Fall through to browser fallback
   }
 
   // 2. Fallback for public domains / web addresses when running without backend API
@@ -47,10 +50,10 @@ export async function pingHost(rawHost) {
   if (!isIp) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
       const start = performance.now();
 
-      await fetch(`https://${host}`, {
+      const fetchRes = await fetch(`https://${host}`, {
         mode: 'no-cors',
         cache: 'no-store',
         signal: controller.signal
@@ -58,11 +61,11 @@ export async function pingHost(rawHost) {
       clearTimeout(timeoutId);
 
       const elapsed = Math.round(performance.now() - start);
-      return { online: true, time: elapsed };
+      return { online: true, sanctioned: false, time: elapsed };
     } catch (err) {
-      return { online: false, time: null };
+      return { online: false, sanctioned: false, time: null };
     }
   }
 
-  return { online: false, time: null };
+  return { online: false, sanctioned: false, time: null };
 }

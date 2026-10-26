@@ -132,6 +132,7 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
           servers={servers}
           pingResults={pingResults}
           onRefreshAll={() => pingAll(servers)}
+          onRefreshSingle={pingSingle}
           onOpenExtend={() => {
             setInitialShowAdd(false);
             setIsExtendOpen(!isExtendOpen);

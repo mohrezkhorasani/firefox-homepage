@@ -27,7 +27,7 @@ export default function ServerExtendPanel({
   initialShowAdd = false
 }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all'); // all | online | offline | pinned
+  const [filterType, setFilterType] = useState('all'); // all | online | offline | pinned | sanctioned
   const [showAddForm, setShowAddForm] = useState(initialShowAdd);
   const [newName, setNewName] = useState('');
   const [newHost, setNewHost] = useState('');
@@ -36,7 +36,8 @@ export default function ServerExtendPanel({
 
   if (!isOpen) return null;
 
-  function handleCopy(host) {
+  function handleCopy(e, host) {
+    e.stopPropagation();
     navigator.clipboard.writeText(host);
     setCopiedHost(host);
     setTimeout(() => setCopiedHost(null), 1800);
@@ -73,13 +74,15 @@ export default function ServerExtendPanel({
 
     if (!matchesSearch) return false;
 
-    if (filterType === 'online') return res?.online === true;
+    if (filterType === 'online') return res?.online === true && !res?.sanctioned;
+    if (filterType === 'sanctioned') return res?.sanctioned === true;
     if (filterType === 'offline') return res && res.online === false;
     if (filterType === 'pinned') return srv.pinned;
     return true;
   });
 
-  const onlineCount = servers.filter((s) => pingResults[s.id]?.online).length;
+  const onlineCount = servers.filter((s) => pingResults[s.id]?.online && !pingResults[s.id]?.sanctioned).length;
+  const sanctionedCount = servers.filter((s) => pingResults[s.id]?.sanctioned).length;
   const offlineCount = servers.filter((s) => pingResults[s.id] && !pingResults[s.id].online).length;
 
   return (
@@ -103,8 +106,14 @@ export default function ServerExtendPanel({
             <div className="flex items-center gap-2 text-[10px] mt-0.5 font-medium">
               <span className="text-emerald-400 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                {onlineCount} آنلاین
+                {onlineCount} وصل
               </span>
+              {sanctionedCount > 0 && (
+                <span className="text-purple-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                  {sanctionedCount} تحریم
+                </span>
+              )}
               <span className="text-rose-400 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                 {offlineCount} قطع
@@ -235,6 +244,7 @@ export default function ServerExtendPanel({
           {[
             { id: 'all', label: 'همه' },
             { id: 'online', label: '🟢' },
+            { id: 'sanctioned', label: '🟣' },
             { id: 'offline', label: '🔴' },
             { id: 'pinned', label: '📌' }
           ].map((tab) => (
@@ -264,6 +274,7 @@ export default function ServerExtendPanel({
             const res = pingResults[srv.id];
             const isChecking = res?.checking;
             const isOnline = res?.online;
+            const isSanctioned = res?.sanctioned;
             const latency = res?.time;
 
             let dotClass = 'bg-amber-400 animate-pulse';
@@ -271,7 +282,11 @@ export default function ServerExtendPanel({
             let statusText = '...';
 
             if (!isChecking && res !== undefined) {
-              if (isOnline) {
+              if (isSanctioned) {
+                dotClass = 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.9)]';
+                badgeBg = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+                statusText = 'تحریم (403)';
+              } else if (isOnline) {
                 dotClass = 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]';
                 badgeBg = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
                 statusText = latency !== null ? `${latency}ms` : 'آنلاین';
@@ -285,7 +300,9 @@ export default function ServerExtendPanel({
             return (
               <div
                 key={srv.id}
-                className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition group"
+                onClick={() => onRefreshSingle(srv.id, srv.host)}
+                className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-cyan-400/20 transition group cursor-pointer"
+                title="کلیک برای تست مجدد پینگ این سرور"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
@@ -303,7 +320,7 @@ export default function ServerExtendPanel({
                     <div className="flex items-center gap-1 text-[10px] text-gray-400 font-mono mt-0.5" dir="ltr">
                       <span className="truncate">{srv.host}</span>
                       <button
-                        onClick={() => handleCopy(srv.host)}
+                        onClick={(e) => handleCopy(e, srv.host)}
                         className="text-gray-500 hover:text-white transition p-0.5"
                         title="کپی آدرس"
                       >
@@ -317,8 +334,8 @@ export default function ServerExtendPanel({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border font-semibold min-w-[48px] text-center ${badgeBg}`}>
+                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border font-semibold min-w-[50px] text-center ${badgeBg}`}>
                     {statusText}
                   </span>
 
