@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Radio,
@@ -16,8 +17,8 @@ import {
   Plus,
   Zap,
   Layers,
-  ChevronDown,
-  ChevronUp
+  ShieldCheck,
+  Globe
 } from 'lucide-react';
 import {
   getSavedVpnSubs,
@@ -76,6 +77,9 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
   if (!isOpen) return null;
 
   const currentProxyIp = proxyIpData?.query || proxyIpData?.ip || '';
+  const currentCountry = proxyIpData?.country || proxyIpData?.country_name || '';
+  const currentIsp = proxyIpData?.isp || proxyIpData?.org || '';
+
   const detectedSub = detectActiveSub(subs, proxyIpData);
   const selectedSub = subs.find((s) => s.id === selectedSubId) || detectedSub || subs[0];
 
@@ -98,7 +102,7 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
       setSubUrl('');
       setTitle('');
       setIsAddingNew(false);
-      setSuccess(`اطلاعات اشتراک با موفقیت ثبت شد (${result.sub.servers.length} سرور شناسایی گردید).`);
+      setSuccess(`اشتراک جدید با موفقیت اضافه شد (${result.sub.servers.length} سرور شناسایی گردید).`);
       if (onUpdated) onUpdated();
     } catch (err) {
       setError(err.message || 'خطا در دریافت اطلاعات از لینک ساب.');
@@ -116,7 +120,7 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
     try {
       const result = await fetchVpnSubTraffic(sub.subUrl, sub.title, sub.id);
       setSubs(result.allSubs);
-      setSuccess('ترافیک این اشتراک بروزرسانی شد.');
+      setSuccess(`ترافیک اشتراک «${sub.title}» بروزرسانی شد.`);
       if (onUpdated) onUpdated();
     } catch (err) {
       setError(err.message || 'خطا در بروزرسانی ترافیک.');
@@ -125,8 +129,8 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
     }
   }
 
-  function handleDelete(id) {
-    if (window.confirm('آیا مطمئن هستید که می‌خواهید این لینک ساب را حذف کنید؟')) {
+  function handleDelete(id, subTitle) {
+    if (window.confirm(`آیا مطمئن هستید که می‌خواهید اشتراک «${subTitle}» را حذف کنید؟`)) {
       const updated = deleteVpnSub(id);
       setSubs(updated);
       if (selectedSubId === id) {
@@ -151,94 +155,101 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
 
   const traffic = selectedSub?.traffic;
 
-  return (
+  const modalNode = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in"
       dir="rtl"
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 border border-white/20 rounded-2xl w-full max-w-xl p-6 shadow-2xl text-white relative max-h-[88vh] overflow-y-auto scrollbar-thin animate-scale-up"
+        className="bg-slate-900 border border-white/20 rounded-3xl w-full max-w-3xl p-6 sm:p-8 shadow-2xl text-white relative max-h-[90vh] overflow-y-auto scrollbar-thin"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-sky-500/20 border border-sky-500/30 text-sky-400">
-              <Radio className="w-6 h-6" />
+        {/* Top Header */}
+        <div className="flex items-center justify-between border-b border-white/10 pb-5 mb-5">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 rounded-2xl bg-sky-500/20 border border-sky-500/30 text-sky-400">
+              <Radio className="w-7 h-7" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="text-xl font-black text-white flex items-center gap-2">
                 مدیریت اشتراک‌های فیلترشکن (چند ساب)
               </h2>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5">
                 تشخیص هوشمند کانفیگ فعال از روی IP پروکسی و نمایش حجم باقی‌مانده
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition"
-            title="بستن پنجره"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-2xl transition"
+            title="بستن (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Current Proxy IP & Detection Banner */}
-        <div className="p-3 rounded-xl bg-slate-800/80 border border-white/10 mb-4 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse" />
-            <span className="text-gray-300">آی‌پی متصل فعلی:</span>
-            <span className="font-mono font-bold text-sky-300" dir="ltr">
-              {currentProxyIp || 'در حال استعلام...'}
+        {/* Current Connection Status Banner */}
+        <div className="p-4 rounded-2xl bg-slate-800/90 border border-white/10 mb-6 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 rounded-full bg-sky-400 animate-pulse shrink-0" />
+            <span className="text-gray-300">وضعیت اتصال پروکسی فعلی:</span>
+            <span className="font-mono font-bold text-sky-300 text-sm" dir="ltr">
+              {currentProxyIp || 'در حال بررسی...'}
             </span>
+            {currentCountry && (
+              <span className="text-gray-400 text-xs">({currentCountry})</span>
+            )}
           </div>
 
-          {detectedSub && (
-            <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 font-medium">
-              <Zap className="w-3 h-3 text-emerald-400" />
+          {detectedSub ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs">
+              <Zap className="w-3.5 h-3.5 text-emerald-400" />
               <span>متصل به: {detectedSub.title}</span>
+            </div>
+          ) : (
+            <span className="text-xs text-gray-400">
+              {subs.length === 0 ? 'ساب ثبت نشده است' : 'کانفیگ تطبیق‌یافته مشخص نیست'}
             </span>
           )}
         </div>
 
-        {/* Success or Error banners */}
+        {/* Notifications */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="mb-5 p-3.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs sm:text-sm flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
-            <Check className="w-4 h-4 shrink-0" />
+          <div className="mb-5 p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm flex items-center gap-2.5">
+            <Check className="w-5 h-5 shrink-0" />
             <span>{success}</span>
           </div>
         )}
 
-        {/* Tabs of Subscriptions (Multi-Sub Selector) */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-gray-300 flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5 text-cyan-400" />
+        {/* Subscription Tabs Bar */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs sm:text-sm font-bold text-gray-300 flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-cyan-400" />
               <span>اشتراک‌های ثبت‌شده ({subs.length}):</span>
             </span>
             <button
               onClick={() => setIsAddingNew(!isAddingNew)}
-              className="flex items-center gap-1 text-[11px] font-bold text-cyan-300 hover:text-cyan-200 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/30 px-2.5 py-1 rounded-lg transition"
+              className="flex items-center gap-1.5 text-xs font-bold text-cyan-300 hover:text-cyan-200 bg-cyan-950/50 hover:bg-cyan-900/60 border border-cyan-500/40 px-3 py-1.5 rounded-xl transition shadow-sm"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
               <span>افزودن ساب جدید</span>
             </button>
           </div>
 
           {subs.length === 0 ? (
-            <div className="p-4 rounded-xl bg-black/30 border border-white/10 text-center text-xs text-gray-400">
-              هنوز هیچ لینک سابی اضافه نشده است. روی «افزودن ساب جدید» کلیک کنید.
+            <div className="p-6 rounded-2xl bg-black/40 border border-white/10 text-center text-xs sm:text-sm text-gray-400">
+              هنوز هیچ لینک سابی اضافه نشده است. فرم زیر را پر کنید تا ترافیک محاسبه شود.
             </div>
           ) : (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
               {subs.map((s) => {
                 const isSelected = selectedSub?.id === s.id;
                 const isDetected = detectedSub?.id === s.id;
@@ -250,18 +261,18 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                       setSelectedSubId(s.id);
                       setIsAddingNew(false);
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition border ${
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-semibold whitespace-nowrap transition border ${
                       isSelected
-                        ? 'bg-sky-500 text-slate-950 border-sky-400 shadow-md font-bold'
+                        ? 'bg-sky-500 text-slate-950 border-sky-400 shadow-lg shadow-sky-500/20 font-bold'
                         : 'bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border-white/10'
                     }`}
                   >
                     <span>{s.title}</span>
                     {isDetected && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-500/40" title="اتصال فعلی" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-500/50" title="اتصال فعلی شما" />
                     )}
                     {s.traffic?.remainingText && (
-                      <span className={`text-[10px] px-1 rounded ${isSelected ? 'bg-black/20 text-slate-950' : 'bg-black/40 text-emerald-300'}`}>
+                      <span className={`text-[11px] px-1.5 py-0.5 rounded-lg font-mono ${isSelected ? 'bg-black/20 text-slate-950 font-bold' : 'bg-black/40 text-emerald-300'}`}>
                         {s.traffic.remainingText}
                       </span>
                     )}
@@ -272,25 +283,26 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
           )}
         </div>
 
-        {/* Selected Sub Traffic & Details Card */}
+        {/* Selected Subscription Large Traffic Dashboard */}
         {selectedSub && !isAddingNew && (
-          <div className="mb-5 p-4 rounded-xl bg-black/40 border border-white/15 space-y-3">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <div className="flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-cyan-400" />
-                <span className="font-bold text-sm text-white">
+          <div className="mb-6 p-5 sm:p-6 rounded-2xl bg-black/50 border border-white/15 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <HardDrive className="w-5 h-5 text-cyan-400" />
+                <span className="font-bold text-base sm:text-lg text-white">
                   {selectedSub.title}
                 </span>
                 {detectedSub?.id === selectedSub.id ? (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-bold">
-                    ✓ فعال در این اتصال
+                  <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-emerald-400" />
+                    <span>فعال در این اتصال</span>
                   </span>
                 ) : (
                   <button
                     onClick={() => handleSetManualActive(selectedSub.id)}
-                    className="text-[10px] text-gray-400 hover:text-cyan-300 underline"
+                    className="text-xs text-gray-400 hover:text-cyan-300 underline"
                   >
-                    انتخاب به عنوان پیش‌فرض
+                    تنظیم به عنوان فعال پیش‌فرض
                   </button>
                 )}
               </div>
@@ -299,40 +311,41 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                 <button
                   onClick={() => handleRefreshSingle(selectedSub)}
                   disabled={isLoading}
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition"
-                  title="بروزرسانی ترافیک این ساب"
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white transition flex items-center gap-1 text-xs"
+                  title="بروزرسانی ترافیک"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">بروزرسانی</span>
                 </button>
                 <button
-                  onClick={() => handleDelete(selectedSub.id)}
-                  className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition"
+                  onClick={() => handleDelete(selectedSub.id, selectedSub.title)}
+                  className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition"
                   title="حذف این ساب"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Volume Stats */}
+            {/* Big Statistics Grid */}
             {traffic && (
               <>
-                <div className="grid grid-cols-3 gap-2 text-center py-1">
-                  <div className="bg-white/5 p-2 rounded-lg">
-                    <span className="text-[10px] text-gray-400 block mb-0.5">باقی‌مانده:</span>
-                    <span className="text-sm sm:text-base font-black text-emerald-400">
+                <div className="grid grid-cols-3 gap-3 text-center py-2">
+                  <div className="bg-slate-800/80 p-3 sm:p-4 rounded-2xl border border-emerald-500/20">
+                    <span className="text-xs text-gray-400 block mb-1">حجم باقی‌مانده</span>
+                    <span className="text-lg sm:text-2xl font-black text-emerald-400">
                       {traffic.remainingText}
                     </span>
                   </div>
-                  <div className="bg-white/5 p-2 rounded-lg">
-                    <span className="text-[10px] text-gray-400 block mb-0.5">مصرف‌شده:</span>
-                    <span className="text-sm sm:text-base font-bold text-cyan-300">
+                  <div className="bg-slate-800/80 p-3 sm:p-4 rounded-2xl border border-cyan-500/20">
+                    <span className="text-xs text-gray-400 block mb-1">حجم مصرف‌شده</span>
+                    <span className="text-lg sm:text-2xl font-bold text-cyan-300">
                       {traffic.usedText}
                     </span>
                   </div>
-                  <div className="bg-white/5 p-2 rounded-lg">
-                    <span className="text-[10px] text-gray-400 block mb-0.5">کل بسته:</span>
-                    <span className="text-sm sm:text-base font-bold text-gray-200">
+                  <div className="bg-slate-800/80 p-3 sm:p-4 rounded-2xl border border-white/10">
+                    <span className="text-xs text-gray-400 block mb-1">کل بسته اشتراک</span>
+                    <span className="text-lg sm:text-2xl font-bold text-gray-200">
                       {traffic.totalText}
                     </span>
                   </div>
@@ -340,12 +353,12 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
 
                 {/* Progress Bar */}
                 {traffic.total > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[11px] text-gray-400">
-                      <span>مصرف شده: {traffic.percentUsed}٪</span>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex justify-between text-xs text-gray-300 font-medium">
+                      <span>درصد مصرف: {traffic.percentUsed}٪</span>
                       <span>باقی‌مانده: {traffic.percentRemaining}٪</span>
                     </div>
-                    <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5">
+                    <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden p-0.5">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
                           traffic.percentUsed > 85
@@ -360,21 +373,21 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                   </div>
                 )}
 
-                {/* Expiration and Servers count */}
-                <div className="flex flex-wrap items-center justify-between text-xs pt-1 text-gray-300 border-t border-white/5 gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                    <span>انقضا: </span>
-                    <span className="font-semibold text-white">{traffic.expireFormatted}</span>
+                {/* Bottom Details Row */}
+                <div className="flex flex-wrap items-center justify-between text-xs sm:text-sm pt-2 text-gray-300 border-t border-white/10 gap-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>تاریخ انقضا: </span>
+                    <span className="font-bold text-white">{traffic.expireFormatted}</span>
                     {traffic.daysLeft !== null && (
-                      <span className="text-[11px] text-cyan-300">
+                      <span className="text-xs text-cyan-300 font-medium">
                         ({traffic.daysLeft > 0 ? `${traffic.daysLeft} روز باقی‌مانده` : 'منقضی'})
                       </span>
                     )}
                   </div>
 
-                  <span className="text-[11px] text-gray-400 font-mono">
-                    {selectedSub.servers?.length || 0} آدرس سرور ثبت‌شده
+                  <span className="text-xs text-gray-400 font-mono bg-white/5 px-2.5 py-1 rounded-xl">
+                    {selectedSub.servers?.length || 0} سرور استخراج‌شده
                   </span>
                 </div>
               </>
@@ -382,48 +395,48 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
           </div>
         )}
 
-        {/* Add New Subscription Form (shown when clicking Add New or when list empty) */}
+        {/* Add New Subscription Form (Wide and clean) */}
         {(isAddingNew || subs.length === 0) && (
-          <form onSubmit={handleFetch} className="mb-5 p-4 rounded-xl bg-black/40 border border-cyan-500/30 space-y-3">
-            <h3 className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+          <form onSubmit={handleFetch} className="mb-6 p-5 sm:p-6 rounded-2xl bg-black/50 border border-cyan-500/40 space-y-4">
+            <h3 className="text-sm font-bold text-cyan-300 flex items-center gap-2">
               <Plus className="w-4 h-4" />
-              <span>افزودن لینک ساب جدید:</span>
+              <span>افزودن لینک ساب فیلترشکن جدید:</span>
             </h3>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                 عنوان اشتراک (مثال: ساب همراه اول / ایرانسل / آلمان):
               </label>
               <input
                 type="text"
-                placeholder="مثلاً: سرور VIP ۱"
+                placeholder="مثلاً: ساب سرور اختصاصی آلمان"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-slate-800/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition"
+                className="w-full bg-slate-800 border border-white/15 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                 آدرس لینک ساب (Subscription URL): <span className="text-rose-400">*</span>
               </label>
               <textarea
-                rows={2}
-                placeholder="https://.../api/v1/client/subscribe?token=... یا لینک V2ray/Hiddify"
+                rows={3}
+                placeholder="https://domain.com/api/v1/client/subscribe?token=... یا لینک V2ray/Hiddify/Happ"
                 value={subUrl}
                 onChange={(e) => setSubUrl(e.target.value)}
                 required
-                className="w-full bg-slate-800/80 border border-white/10 rounded-xl p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition font-mono break-all"
+                className="w-full bg-slate-800 border border-white/15 rounded-xl p-3 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition font-mono break-all"
                 dir="ltr"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-1">
+            <div className="flex items-center justify-end gap-3 pt-2">
               {subs.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setIsAddingNew(false)}
-                  className="px-3 py-1.5 text-xs text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition"
+                  className="px-4 py-2 text-xs sm:text-sm text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition"
                 >
                   انصراف
                 </button>
@@ -431,21 +444,21 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-900 bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 rounded-xl transition shadow-lg shadow-cyan-500/20"
+                className="flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-900 bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 rounded-xl transition shadow-lg shadow-cyan-500/20"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'در حال دریافت...' : 'استعلام و افزودن ساب'}
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? 'در حال دریافت اطلاعات...' : 'استعلام و ثبت ساب'}
               </button>
             </div>
           </form>
         )}
 
-        {/* Happ Routing Quick Bar inside Modal */}
-        <div className="pt-4 border-t border-white/10 space-y-2.5">
+        {/* Happ Routing Section */}
+        <div className="pt-5 border-t border-white/10 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+            <span className="text-xs sm:text-sm font-bold text-sky-400 flex items-center gap-1.5">
               <Route className="w-4 h-4" />
-              <span>پروفایل روتینگ اپلیکیشن HAPP</span>
+              <span>پروفایل روتینگ اختصاصی اپلیکیشن HAPP</span>
             </span>
             <button
               type="button"
@@ -453,40 +466,41 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                 onClose();
                 if (onOpenRoutingModal) onOpenRoutingModal();
               }}
-              className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
             >
               <HelpCircle className="w-3.5 h-3.5" />
               آموزش افزودن روتینگ
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleCopyRouting}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 transition"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 transition"
             >
-              {copiedRouting ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedRouting ? 'لینک روتینگ کپی شد' : 'کپی لینک روتینگ HAPP'}</span>
+              {copiedRouting ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              <span>{copiedRouting ? 'لینک روتینگ کپی شد!' : 'کپی لینک روتینگ HAPP'}</span>
             </button>
 
             <button
               type="button"
               onClick={() => (window.location.href = HAPP_ROUTING_URL)}
-              className="px-3 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition"
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition flex items-center gap-1.5"
               title="باز کردن مستقیم در برنامه Happ"
             >
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="w-4 h-4" />
+              <span className="hidden sm:inline">باز کردن در HAPP</span>
             </button>
           </div>
         </div>
 
         {/* Bottom Close Button */}
-        <div className="mt-4 pt-3 border-t border-white/10 flex justify-end">
+        <div className="mt-6 pt-4 border-t border-white/10 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-semibold text-gray-300 hover:text-white bg-white/10 hover:bg-white/15 rounded-xl transition"
+            className="px-6 py-2 text-xs sm:text-sm font-bold text-gray-300 hover:text-white bg-white/10 hover:bg-white/15 rounded-xl transition"
           >
             بستن
           </button>
@@ -494,4 +508,6 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }
