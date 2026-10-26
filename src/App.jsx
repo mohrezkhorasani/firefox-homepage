@@ -7,6 +7,7 @@ import BottomNav from './components/BottomNav';
 import ToolsPage from './components/ToolsPage';
 import TodoWidget from './components/TodoWidget';
 import MarketWidget from './components/MarketWidget';
+import ApiMonitorWidget from './components/ApiMonitorWidget';
 import { DEFAULT_BOOKMARKS } from './data/defaultBookmarks';
 import { DEFAULT_TAGS } from './data/defaultTags';
 
@@ -134,6 +135,9 @@ export default function App() {
       >
         <i className="fas fa-image text-xl"></i>
       </button>
+
+      {/* Top-Right API Monitor Widget */}
+      <ApiMonitorWidget />
 
       {/* Header */}
       <Header />
