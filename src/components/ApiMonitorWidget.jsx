@@ -260,6 +260,13 @@ export default function ApiMonitorWidget() {
                       >
                         <Edit3 className="w-2.5 h-2.5" />
                       </button>
+                      <button
+                        onClick={() => handleDeleteApi(api.id)}
+                        className="p-0.5 rounded text-gray-400 hover:text-rose-400 transition"
+                        title="حذف این API"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
                     </div>
                   </div>
 

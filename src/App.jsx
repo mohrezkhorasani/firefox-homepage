@@ -139,8 +139,8 @@ export default function App() {
       {/* Top-Right API Monitor Widget */}
       <ApiMonitorWidget />
 
-      {/* Center Content Wrapper: width reduced strictly from the right side */}
-      <div className="xl:mr-[345px] max-w-7xl transition-all">
+      {/* Center Content Wrapper: positioned cleanly between the left menu (BottomNav) and right menu (ApiMonitor) */}
+      <div className="lg:ml-[225px] xl:mr-[345px] transition-all">
         {/* Header */}
         <Header />
 
