@@ -98,14 +98,14 @@ export default function BookmarkGrid({
                 <LucideComp className="w-5 h-5 text-cyan-300 hidden" />
               </div>
 
-              {/* Title */}
-              <span className="font-bold text-sm truncate flex-1 text-white">
+              {/* Title: Full width, displays complete title without truncation */}
+              <span className="font-bold text-xs sm:text-sm text-white flex-1 leading-snug break-words">
                 {bm.title}
               </span>
 
-              {/* Hover Actions: Logo + Color Picker + Edit + Delete */}
+              {/* Hover Actions: Overlaid on the left side so title stretches to full width */}
               <div 
-                className="opacity-0 group-hover:opacity-100 transition flex items-center gap-1 z-20"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 z-20 bg-black/85 backdrop-blur-md px-1 py-0.5 rounded-lg border border-white/15 shadow-xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Logo Editor Icon */}
