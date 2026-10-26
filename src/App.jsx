@@ -139,38 +139,41 @@ export default function App() {
       {/* Top-Right API Monitor Widget */}
       <ApiMonitorWidget />
 
-      {/* Header */}
-      <Header />
+      {/* Center Content Wrapper: width reduced strictly from the right side */}
+      <div className="xl:mr-[345px] max-w-7xl transition-all">
+        {/* Header */}
+        <Header />
 
-      {/* Main Grid */}
-      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 text-shadow">
-        {activePage === 'tools' ? (
-          <div className="lg:col-span-3">
-            <ToolsPage pages={pages} onRemovePage={handleRemovePage} />
-          </div>
-        ) : (
-          <>
-            {/* Sites Section (Left 2 cols) */}
-            <div className="lg:col-span-2 space-y-6">
-              <BookmarkGrid
-                bookmarks={pageBookmarks}
-                activeTag={activeTag}
-                onEditBookmark={openEditModal}
-                onAddNew={openAddModal}
-                onDeleteBookmark={handleDeleteBookmark}
-                onUpdateBookmarkColor={handleUpdateBookmarkColor}
-                onUpdateBookmarkLogo={handleUpdateBookmarkLogo}
-              />
+        {/* Main Grid */}
+        <main className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 text-shadow">
+          {activePage === 'tools' ? (
+            <div className="lg:col-span-3">
+              <ToolsPage pages={pages} onRemovePage={handleRemovePage} />
             </div>
+          ) : (
+            <>
+              {/* Sites Section (Left 2 cols) */}
+              <div className="lg:col-span-2 space-y-6">
+                <BookmarkGrid
+                  bookmarks={pageBookmarks}
+                  activeTag={activeTag}
+                  onEditBookmark={openEditModal}
+                  onAddNew={openAddModal}
+                  onDeleteBookmark={handleDeleteBookmark}
+                  onUpdateBookmarkColor={handleUpdateBookmarkColor}
+                  onUpdateBookmarkLogo={handleUpdateBookmarkLogo}
+                />
+              </div>
 
-            {/* Sidebar (Right 1 col: Market & Todo) */}
-            <div className="space-y-6">
-              <MarketWidget />
-              <TodoWidget />
-            </div>
-          </>
-        )}
-      </main>
+              {/* Sidebar (Right 1 col: Market & Todo) */}
+              <div className="space-y-6">
+                <MarketWidget />
+                <TodoWidget />
+              </div>
+            </>
+          )}
+        </main>
+      </div>
 
       {/* Bottom Right: Tag Filters */}
       {activePage !== 'tools' && (

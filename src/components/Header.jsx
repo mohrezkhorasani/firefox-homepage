@@ -17,7 +17,7 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="glass p-5 rounded-2xl max-w-7xl mx-auto mb-6 text-shadow border border-white/20">
+    <header className="glass p-5 rounded-2xl w-full mb-6 text-shadow border border-white/20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         {/* Clock & Dates */}
         <div className="text-center md:text-right">

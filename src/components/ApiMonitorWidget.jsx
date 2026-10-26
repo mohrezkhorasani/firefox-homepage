@@ -153,7 +153,7 @@ export default function ApiMonitorWidget() {
   return (
     <>
       <div
-        className="fixed top-4 right-4 z-40 w-80 sm:w-96 glass p-3 rounded-2xl border border-white/20 shadow-2xl flex flex-col gap-2 select-none text-shadow animate-fadeIn"
+        className="fixed top-4 right-4 z-40 w-[320px] glass p-3 rounded-2xl border border-white/20 shadow-2xl flex flex-col gap-2 select-none text-shadow animate-fadeIn"
         dir="rtl"
       >
         {/* Header */}
@@ -206,6 +206,7 @@ export default function ApiMonitorWidget() {
               const isOk = res?.ok;
               const selectedKeys = api.selectedKeys || [];
 
+              // Status Indicator Light
               let reqDotClass = 'bg-amber-400 animate-pulse';
               let statusTooltip = 'در حال بررسی...';
 
@@ -262,9 +263,9 @@ export default function ApiMonitorWidget() {
                     </div>
                   </div>
 
-                  {/* Parameters Display Area */}
+                  {/* Parameters Display Area: STACKED VERTICALLY (زیر هم) */}
                   {selectedKeys.length > 0 && res?.data && (
-                    <div className="flex flex-wrap gap-1.5 mt-0.5 pt-1 border-t border-white/5" dir="ltr">
+                    <div className="flex flex-col gap-1 mt-1 pt-1 border-t border-white/5" dir="ltr">
                       {selectedKeys.map((keyPath) => {
                         const rawVal = getNestedValue(res.data, keyPath);
                         const valStr = formatParamValue(rawVal);
@@ -274,15 +275,18 @@ export default function ApiMonitorWidget() {
                         return (
                           <div
                             key={keyPath}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-[10px] font-mono"
+                            className="flex items-center justify-between px-2 py-1 rounded-lg bg-black/50 border border-white/5 text-[11px] font-mono"
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${lightClass}`} />
-                            {!isSingle && (
-                              <span className="text-gray-400 truncate max-w-[80px]">
-                                {keyPath.split('.').pop()}:
-                              </span>
-                            )}
-                            <span className="font-bold text-cyan-200 truncate max-w-[120px]">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              {/* Value Status Indicator */}
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${lightClass}`} />
+                              {!isSingle && (
+                                <span className="text-gray-400 font-medium truncate">
+                                  {keyPath}:
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-bold text-cyan-200 truncate ml-2 text-right">
                               {valStr}
                             </span>
                           </div>
@@ -291,8 +295,9 @@ export default function ApiMonitorWidget() {
                     </div>
                   )}
 
+                  {/* Error Message */}
                   {!isOk && !isLoading && res && (
-                    <div className="text-[10px] text-rose-400 font-mono truncate" dir="ltr">
+                    <div className="text-[10px] text-rose-400 font-mono truncate px-1" dir="ltr">
                       {res.statusText || 'Connection Failed'}
                     </div>
                   )}
