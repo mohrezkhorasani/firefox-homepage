@@ -176,6 +176,7 @@ export function extractServersFromSubData(data) {
  */
 const STORAGE_KEY_LIST = 'homepage_vpn_sub_list_v2';
 const STORAGE_KEY_ACTIVE = 'homepage_vpn_active_sub_id';
+const STORAGE_KEY_MANUAL_BINDINGS = 'homepage_vpn_ip_bindings'; // { [ip]: subId }
 
 export function getSavedVpnSubs() {
   try {
@@ -230,6 +231,40 @@ export function setActiveSubId(id) {
       localStorage.removeItem(STORAGE_KEY_ACTIVE);
     }
   }
+}
+
+export function getIpBindings() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_KEY_MANUAL_BINDINGS);
+      if (raw) return JSON.parse(raw);
+    }
+  } catch {}
+  return {};
+}
+
+/**
+ * Manually connect/bind a specific IP to a Subscription
+ */
+export function bindIpToSub(ip, subId) {
+  if (!ip || !subId) return;
+  const cleanIp = String(ip).trim().toLowerCase();
+  const bindings = getIpBindings();
+  bindings[cleanIp] = subId;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_MANUAL_BINDINGS, JSON.stringify(bindings));
+  }
+  // Also add this IP to the sub's known servers array so it persists permanently
+  const list = getSavedVpnSubs();
+  const targetSub = list.find((s) => s.id === subId);
+  if (targetSub) {
+    if (!Array.isArray(targetSub.servers)) targetSub.servers = [];
+    if (!targetSub.servers.includes(cleanIp)) {
+      targetSub.servers.push(cleanIp);
+      saveVpnSubs(list);
+    }
+  }
+  setActiveSubId(subId);
 }
 
 /**
@@ -345,10 +380,18 @@ export function detectActiveSub(subs, proxyIpData) {
   if (subs.length === 1) return subs[0];
 
   const currentIp = String(proxyIpData?.query || proxyIpData?.ip || '').trim().toLowerCase();
-  const currentIsp = String(proxyIpData?.isp || proxyIpData?.org || '').trim().toLowerCase();
-  const currentCountry = String(proxyIpData?.countryCode || proxyIpData?.country_code || '').trim().toLowerCase();
 
-  // 1. Direct IP or server match
+  // 1. Manual IP bindings first
+  if (currentIp) {
+    const bindings = getIpBindings();
+    const boundSubId = bindings[currentIp];
+    if (boundSubId) {
+      const bound = subs.find((s) => s.id === boundSubId);
+      if (bound) return bound;
+    }
+  }
+
+  // 2. Direct IP or server match in sub.servers list
   if (currentIp) {
     for (const sub of subs) {
       if (Array.isArray(sub.servers)) {
@@ -361,7 +404,7 @@ export function detectActiveSub(subs, proxyIpData) {
     }
   }
 
-  // 2. Sub URL domain match (e.g. if proxy IP or reverse lookup matches sub domain)
+  // 3. Sub URL domain match
   for (const sub of subs) {
     try {
       const parsed = new URL(sub.subUrl);
@@ -369,13 +412,10 @@ export function detectActiveSub(subs, proxyIpData) {
       if (currentIp && subHost === currentIp) {
         return sub;
       }
-      if (Array.isArray(sub.servers) && sub.servers.some((s) => s.includes(subHost))) {
-        // High confidence match
-      }
     } catch {}
   }
 
-  // 3. Fallback: check saved active ID or return first sub
+  // 4. Fallback: check saved active ID or return first sub
   const savedActiveId = getActiveSubId();
   if (savedActiveId) {
     const found = subs.find((s) => s.id === savedActiveId);

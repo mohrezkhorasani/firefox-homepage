@@ -17,8 +17,9 @@ import {
   Plus,
   Zap,
   Layers,
+  Link,
   ShieldCheck,
-  Globe
+  CheckCircle2
 } from 'lucide-react';
 import {
   getSavedVpnSubs,
@@ -27,6 +28,7 @@ import {
   getActiveSubId,
   setActiveSubId,
   detectActiveSub,
+  bindIpToSub,
   HAPP_ROUTING_URL
 } from '../services/vpnSubService';
 
@@ -99,10 +101,16 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
       setSubs(result.allSubs);
       setSelectedSubId(result.sub.id);
       setActiveSubId(result.sub.id);
+
+      // Auto-bind current proxy IP to this newly added sub if user has proxy active
+      if (currentProxyIp) {
+        bindIpToSub(currentProxyIp, result.sub.id);
+      }
+
       setSubUrl('');
       setTitle('');
       setIsAddingNew(false);
-      setSuccess(`اشتراک جدید با موفقیت اضافه شد (${result.sub.servers.length} سرور شناسایی گردید).`);
+      setSuccess(`اشتراک جدید با موفقیت اضافه و به این کانفیگ/آی‌پی متصل شد (${result.sub.servers.length} سرور شناسایی گردید).`);
       if (onUpdated) onUpdated();
     } catch (err) {
       setError(err.message || 'خطا در دریافت اطلاعات از لینک ساب.');
@@ -141,9 +149,15 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
     }
   }
 
-  function handleSetManualActive(id) {
-    setActiveSubId(id);
-    setSelectedSubId(id);
+  // One-click bind current IP to the selected sub
+  function handleConnectCurrentIpToSub(subId) {
+    if (!currentProxyIp) {
+      setError('آی‌پی پروکسی هنوز دریافت نشده است.');
+      return;
+    }
+    bindIpToSub(currentProxyIp, subId);
+    setSelectedSubId(subId);
+    setSuccess(`آی‌پی فعلی (${currentProxyIp}) با موفقیت به این ساب متصل شد و از این پس ترافیک آن نمایش داده می‌شود.`);
     if (onUpdated) onUpdated();
   }
 
@@ -154,6 +168,7 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
   }
 
   const traffic = selectedSub?.traffic;
+  const isSelectedConnectedToCurrentIp = detectedSub?.id === selectedSub?.id;
 
   const modalNode = (
     <div
@@ -173,10 +188,10 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
             </div>
             <div>
               <h2 className="text-xl font-black text-white flex items-center gap-2">
-                مدیریت اشتراک‌های فیلترشکن (چند ساب)
+                مدیریت اشتراک‌های فیلترشکن و اتصال به ساب
               </h2>
               <p className="text-xs sm:text-sm text-gray-400 mt-0.5">
-                تشخیص هوشمند کانفیگ فعال از روی IP پروکسی و نمایش حجم باقی‌مانده
+                اتصال مستقیم کانفیگ/آی‌پی متصل فعلی به ساب مربوطه و نمایش ترافیک باقی‌مانده
               </p>
             </div>
           </div>
@@ -189,28 +204,47 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
           </button>
         </div>
 
-        {/* Current Connection Status Banner */}
-        <div className="p-4 rounded-2xl bg-slate-800/90 border border-white/10 mb-6 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
-          <div className="flex items-center gap-2.5">
-            <span className="w-3 h-3 rounded-full bg-sky-400 animate-pulse shrink-0" />
-            <span className="text-gray-300">وضعیت اتصال پروکسی فعلی:</span>
-            <span className="font-mono font-bold text-sky-300 text-sm" dir="ltr">
-              {currentProxyIp || 'در حال بررسی...'}
-            </span>
-            {currentCountry && (
-              <span className="text-gray-400 text-xs">({currentCountry})</span>
+        {/* Current Connection Status & Fast Connect Action Bar */}
+        <div className="p-4 rounded-2xl bg-slate-800/90 border border-white/15 mb-6 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+            <div className="flex items-center gap-2.5">
+              <span className="w-3 h-3 rounded-full bg-sky-400 animate-pulse shrink-0" />
+              <span className="text-gray-300">کانفیگ/آی‌پی فعال فعلی:</span>
+              <span className="font-mono font-bold text-sky-300 text-sm" dir="ltr">
+                {currentProxyIp || 'در حال دریافت آی‌پی...'}
+              </span>
+              {currentCountry && (
+                <span className="text-gray-400 text-xs">({currentCountry})</span>
+              )}
+            </div>
+
+            {detectedSub ? (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>متصل به ساب: {detectedSub.title}</span>
+              </div>
+            ) : (
+              <span className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-xl">
+                هنوز به هیچ سابی وصل نشده است
+              </span>
             )}
           </div>
 
-          {detectedSub ? (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs">
-              <Zap className="w-3.5 h-3.5 text-emerald-400" />
-              <span>متصل به: {detectedSub.title}</span>
+          {/* Quick-connect Button if not connected or to switch binding */}
+          {selectedSub && !isSelectedConnectedToCurrentIp && currentProxyIp && (
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs text-gray-300">
+                آیا این آی‌پی متعلق به ساب «<span className="text-white font-bold">{selectedSub.title}</span>» است؟
+              </span>
+              <button
+                type="button"
+                onClick={() => handleConnectCurrentIpToSub(selectedSub.id)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition shadow-md"
+              >
+                <Link className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>اتصال این آی‌پی به این ساب</span>
+              </button>
             </div>
-          ) : (
-            <span className="text-xs text-gray-400">
-              {subs.length === 0 ? 'ساب ثبت نشده است' : 'کانفیگ تطبیق‌یافته مشخص نیست'}
-            </span>
           )}
         </div>
 
@@ -246,13 +280,13 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
 
           {subs.length === 0 ? (
             <div className="p-6 rounded-2xl bg-black/40 border border-white/10 text-center text-xs sm:text-sm text-gray-400">
-              هنوز هیچ لینک سابی اضافه نشده است. فرم زیر را پر کنید تا ترافیک محاسبه شود.
+              هنوز هیچ لینک سابی اضافه نشده است. لینک ساب خود را در فرم زیر وارد کنید تا متصل شود.
             </div>
           ) : (
             <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
               {subs.map((s) => {
                 const isSelected = selectedSub?.id === s.id;
-                const isDetected = detectedSub?.id === s.id;
+                const isConnected = detectedSub?.id === s.id;
 
                 return (
                   <button
@@ -268,8 +302,8 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                     }`}
                   >
                     <span>{s.title}</span>
-                    {isDetected && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-500/50" title="اتصال فعلی شما" />
+                    {isConnected && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-500/60" title="متصل به اتصال فعلی شما" />
                     )}
                     {s.traffic?.remainingText && (
                       <span className={`text-[11px] px-1.5 py-0.5 rounded-lg font-mono ${isSelected ? 'bg-black/20 text-slate-950 font-bold' : 'bg-black/40 text-emerald-300'}`}>
@@ -292,17 +326,19 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                 <span className="font-bold text-base sm:text-lg text-white">
                   {selectedSub.title}
                 </span>
-                {detectedSub?.id === selectedSub.id ? (
+
+                {isSelectedConnectedToCurrentIp ? (
                   <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-lg font-bold flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-emerald-400" />
-                    <span>فعال در این اتصال</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>متصل به آی‌پی فعلی</span>
                   </span>
                 ) : (
                   <button
-                    onClick={() => handleSetManualActive(selectedSub.id)}
-                    className="text-xs text-gray-400 hover:text-cyan-300 underline"
+                    onClick={() => handleConnectCurrentIpToSub(selectedSub.id)}
+                    className="flex items-center gap-1 text-xs bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 px-2.5 py-0.5 rounded-lg font-medium transition"
                   >
-                    تنظیم به عنوان فعال پیش‌فرض
+                    <Link className="w-3 h-3" />
+                    <span>وصل کردن آی‌پی به این ساب</span>
                   </button>
                 )}
               </div>
@@ -387,7 +423,7 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                   </div>
 
                   <span className="text-xs text-gray-400 font-mono bg-white/5 px-2.5 py-1 rounded-xl">
-                    {selectedSub.servers?.length || 0} سرور استخراج‌شده
+                    {selectedSub.servers?.length || 0} سرور شناخته‌شده
                   </span>
                 </div>
               </>
@@ -447,7 +483,7 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
                 className="flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-900 bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 rounded-xl transition shadow-lg shadow-cyan-500/20"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'در حال دریافت اطلاعات...' : 'استعلام و ثبت ساب'}
+                {isLoading ? 'در حال دریافت اطلاعات...' : 'استعلام و اتصال به این ساب'}
               </button>
             </div>
           </form>
