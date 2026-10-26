@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Copy, Check, Radio, Route, HelpCircle, HardDrive, Calendar, ExternalLink } from 'lucide-react';
-import { getSavedVpnSub, HAPP_ROUTING_URL } from '../services/vpnSubService';
+import { RefreshCw, Copy, Check, Radio, Route, HelpCircle, HardDrive, Calendar, ExternalLink, Zap } from 'lucide-react';
+import { getSavedVpnSubs, detectActiveSub, HAPP_ROUTING_URL } from '../services/vpnSubService';
 import VpnSubModal from './VpnSubModal';
 import HappRoutingModal from './HappRoutingModal';
 
@@ -97,8 +97,8 @@ export default function IpWidget() {
   const [copied, setCopied] = useState(false);
   const [copiedRouting, setCopiedRouting] = useState(false);
 
-  // VPN Subscription & Routing state
-  const [vpnSub, setVpnSub] = useState(getSavedVpnSub());
+  // Multi-subscription state
+  const [vpnSubs, setVpnSubs] = useState([]);
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
   const [isRoutingModalOpen, setIsRoutingModalOpen] = useState(false);
 
@@ -106,14 +106,14 @@ export default function IpWidget() {
     fetchAll();
   }, []);
 
-  function reloadVpnSub() {
-    setVpnSub(getSavedVpnSub());
+  function reloadVpnSubs() {
+    setVpnSubs(getSavedVpnSubs());
   }
 
   async function fetchAll() {
     fetchIranIp();
     fetchForeignIp();
-    reloadVpnSub();
+    reloadVpnSubs();
   }
 
   function handleCopy(text) {
@@ -207,8 +207,10 @@ export default function IpWidget() {
   const info1 = formatIpDetails(ip1.data, 'Iran');
   const info2 = formatIpDetails(ip2.data, '');
 
-  const traffic = vpnSub?.traffic;
-  const hasSub = !!vpnSub?.subUrl;
+  // Detect active subscription automatically based on IP 2
+  const activeSub = detectActiveSub(vpnSubs, ip2.data);
+  const traffic = activeSub?.traffic;
+  const hasSubs = vpnSubs.length > 0;
 
   return (
     <div className="relative bg-black/40 rounded-xl p-2 border border-white/10 text-xs shadow-inner w-full">
@@ -319,7 +321,7 @@ export default function IpWidget() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-[11px] text-sky-300 flex items-center gap-1">
                     <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>ترافیک اشتراک فیلترشکن</span>
+                    <span>ترافیک اشتراک فعال</span>
                   </span>
                   <button
                     onClick={() => {
@@ -328,14 +330,17 @@ export default function IpWidget() {
                     }}
                     className="text-[10px] text-cyan-400 hover:text-cyan-300 underline"
                   >
-                    {hasSub ? 'تنظیمات' : 'افزودن لینک ساب'}
+                    {hasSubs ? `مدیریت ساب‌ها (${vpnSubs.length})` : 'افزودن لینک ساب'}
                   </button>
                 </div>
 
-                {hasSub && traffic ? (
+                {activeSub && traffic ? (
                   <div className="space-y-1 pt-1">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-gray-300">حجم باقی‌مانده:</span>
+                      <span className="text-gray-300 font-semibold flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-emerald-400" />
+                        <span>{activeSub.title}:</span>
+                      </span>
                       <span className="font-black text-emerald-400">{traffic.remainingText}</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-gray-400">
@@ -360,14 +365,14 @@ export default function IpWidget() {
 
                     {traffic.daysLeft !== null && (
                       <div className="text-[10px] text-amber-300 flex items-center justify-between pt-0.5">
-                        <span>اعتبار: {traffic.expireFormatted}</span>
+                        <span>انقضا: {traffic.expireFormatted}</span>
                         <span>({traffic.daysLeft > 0 ? `${traffic.daysLeft} روز باقی‌مانده` : 'منقضی'})</span>
                       </div>
                     )}
                   </div>
                 ) : (
                   <p className="text-[10.5px] text-gray-400 pt-0.5">
-                    هنوز لینک ساب اضافه نشده است. برای مشاهده حجم و ترافیک کلیک کنید.
+                    هنوز لینک سابی اضافه نشده است. برای ثبت چند ساب و تشخیص خودکار کلیک کنید.
                   </p>
                 )}
               </div>
@@ -412,7 +417,7 @@ export default function IpWidget() {
           onClick={fetchAll}
           disabled={ip1.loading || ip2.loading}
           className="text-gray-400 hover:text-white p-0.5 rounded transition disabled:opacity-50"
-          title="بروزرسانی آی‌پی‌ها"
+          title="بروزرسانی آی‌پی‌ها و ساب‌ها"
         >
           <RefreshCw className={`w-3 h-3 ${(ip1.loading || ip2.loading) ? 'animate-spin' : ''}`} />
         </button>
@@ -466,7 +471,7 @@ export default function IpWidget() {
                     type="button"
                     onClick={() => setIsSubModalOpen(true)}
                     className="text-gray-400 hover:text-cyan-300 p-0.5 rounded transition"
-                    title={traffic?.remainingText ? `حجم باقی‌مانده ساب: ${traffic.remainingText}` : 'تنظیم لینک ساب فیلترشکن'}
+                    title={traffic?.remainingText ? `${activeSub?.title || 'ساب'}: ${traffic.remainingText}` : 'مدیریت چند ساب فیلترشکن'}
                   >
                     <Radio className="w-3 h-3" />
                   </button>
@@ -493,12 +498,15 @@ export default function IpWidget() {
                 {info2?.text}
               </div>
 
-              {/* Mini traffic pill under IP 2 if sub is configured */}
-              {hasSub && traffic && (
+              {/* Mini traffic pill under IP 2 for the detected active sub */}
+              {hasSubs && activeSub && traffic && (
                 <div className="mt-1 pt-1 border-t border-white/5 font-sans" dir="rtl">
                   <div className="flex items-center justify-between text-[9px] leading-tight">
-                    <span className="text-emerald-400 font-bold truncate">
-                      باقی‌مانده: {traffic.remainingText}
+                    <span className="text-emerald-400 font-bold truncate flex items-center gap-1">
+                      <span className="text-[8px] bg-sky-500/30 text-sky-300 px-1 rounded truncate max-w-[70px]">
+                        {activeSub.title}
+                      </span>
+                      <span>{traffic.remainingText}</span>
                     </span>
                     {traffic.daysLeft !== null && (
                       <span className="text-[8.5px] text-gray-400 truncate">
@@ -531,8 +539,9 @@ export default function IpWidget() {
       <VpnSubModal
         isOpen={isSubModalOpen}
         onClose={() => setIsSubModalOpen(false)}
-        onUpdated={reloadVpnSub}
+        onUpdated={reloadVpnSubs}
         onOpenRoutingModal={() => setIsRoutingModalOpen(true)}
+        proxyIpData={ip2.data}
       />
 
       {/* Happ Routing Tutorial Modal */}

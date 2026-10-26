@@ -1,7 +1,8 @@
 /**
  * VPN Subscription & Happ Routing Service
- * Handles fetching traffic stats from v2ray/Xray/Hiddify/Happ subscription links
- * via Subscription-Userinfo header and response inspection.
+ * Handles multi-subscription management, traffic parsing,
+ * extraction of server nodes/IPs from subscription data,
+ * and automatic detection of the active subscription based on connected proxy IP.
  */
 
 export const HAPP_ROUTING_URL =
@@ -18,6 +19,35 @@ export function formatBytes(bytes, decimals = 2) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   const val = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
   return `${val} ${sizes[i]}`;
+}
+
+/**
+ * Safe Base64 decoding (UTF-8 compatible)
+ */
+export function decodeBase64Safe(input) {
+  if (!input || typeof input !== 'string') return '';
+  try {
+    let str = input.trim().replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) str += '=';
+    if (typeof window !== 'undefined' && window.atob) {
+      const decoded = window.atob(str);
+      try {
+        return decodeURIComponent(
+          decoded
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+      } catch {
+        return decoded;
+      }
+    } else if (typeof Buffer !== 'undefined') {
+      return Buffer.from(str, 'base64').toString('utf8');
+    }
+  } catch {
+    // Return empty on decoding error
+  }
+  return '';
 }
 
 /**
@@ -89,41 +119,123 @@ export function parseSubscriptionUserInfo(headerStr) {
 }
 
 /**
- * Storage helpers
+ * Extract server addresses/hostnames/IPs from subscription data (base64 or raw)
  */
-export function getSavedVpnSub() {
+export function extractServersFromSubData(data) {
+  const servers = new Set();
+  if (!data) return [];
+
+  let text = typeof data === 'string' ? data : JSON.stringify(data);
+
+  // If text is base64 encoded list of links, try to decode it
+  if (!text.includes('vmess://') && !text.includes('vless://') && !text.includes('ss://') && !text.includes('trojan://')) {
+    const decoded = decodeBase64Safe(text);
+    if (decoded && (decoded.includes('://') || decoded.includes('{'))) {
+      text = decoded;
+    }
+  }
+
+  // Split into lines or config blocks
+  const lines = text.split(/[\r\n]+/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // vmess:// base64 JSON
+    if (trimmed.startsWith('vmess://')) {
+      const b64 = trimmed.substring(8);
+      const jsonStr = decodeBase64Safe(b64);
+      try {
+        const obj = JSON.parse(jsonStr);
+        if (obj.add) servers.add(String(obj.add).toLowerCase().trim());
+        if (obj.host) servers.add(String(obj.host).toLowerCase().trim());
+        if (obj.sni) servers.add(String(obj.sni).toLowerCase().trim());
+      } catch {}
+    }
+    // vless://, trojan://, ss://, hysteria://
+    else if (trimmed.includes('://')) {
+      try {
+        const urlStr = trimmed.replace(/#.*$/, ''); // remove hash title
+        const parsed = new URL(urlStr);
+        if (parsed.hostname) {
+          servers.add(parsed.hostname.toLowerCase().trim());
+        }
+        const sni = parsed.searchParams.get('sni') || parsed.searchParams.get('host');
+        if (sni) {
+          servers.add(sni.toLowerCase().trim());
+        }
+      } catch {}
+    }
+  }
+
+  return Array.from(servers);
+}
+
+/**
+ * Storage helpers for multi-subscriptions
+ */
+const STORAGE_KEY_LIST = 'homepage_vpn_sub_list_v2';
+const STORAGE_KEY_ACTIVE = 'homepage_vpn_active_sub_id';
+
+export function getSavedVpnSubs() {
   try {
     if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem('homepage_vpn_sub_data');
-      if (raw) return JSON.parse(raw);
+      const raw = localStorage.getItem(STORAGE_KEY_LIST);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      // Migrate old single sub if exists
+      const oldRaw = localStorage.getItem('homepage_vpn_sub_data');
+      if (oldRaw) {
+        const old = JSON.parse(oldRaw);
+        if (old && old.subUrl) {
+          const item = {
+            id: 'sub_' + Date.now(),
+            subUrl: old.subUrl,
+            title: old.title || 'کانفیگ ۱',
+            lastChecked: old.lastChecked || Date.now(),
+            traffic: old.traffic || null,
+            servers: []
+          };
+          localStorage.setItem(STORAGE_KEY_LIST, JSON.stringify([item]));
+          return [item];
+        }
+      }
     }
   } catch (e) {
-    console.error('Failed to get saved VPN sub:', e);
+    console.error('Failed to get saved VPN subs:', e);
   }
-  return {
-    subUrl: '',
-    title: '',
-    lastChecked: null,
-    traffic: null
-  };
+  return [];
 }
 
-export function saveVpnSub(data) {
+export function saveVpnSubs(list) {
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('homepage_vpn_sub_data', JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY_LIST, JSON.stringify(list));
   }
 }
 
-export function clearVpnSub() {
+export function getActiveSubId() {
   if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem('homepage_vpn_sub_data');
+    return localStorage.getItem(STORAGE_KEY_ACTIVE) || null;
+  }
+  return null;
+}
+
+export function setActiveSubId(id) {
+  if (typeof localStorage !== 'undefined') {
+    if (id) {
+      localStorage.setItem(STORAGE_KEY_ACTIVE, id);
+    } else {
+      localStorage.removeItem(STORAGE_KEY_ACTIVE);
+    }
   }
 }
 
 /**
- * Fetch VPN Subscription Traffic
+ * Fetch and refresh a single VPN Subscription
  */
-export async function fetchVpnSubTraffic(subUrl, title = '') {
+export async function fetchVpnSubTraffic(subUrl, title = '', existingId = null) {
   if (!subUrl || !subUrl.trim()) {
     throw new Error('لطفاً آدرس لینک ساب را وارد کنید.');
   }
@@ -149,7 +261,6 @@ export async function fetchVpnSubTraffic(subUrl, title = '') {
 
   let userInfoHeader = null;
   if (json.headers) {
-    // Look for subscription-userinfo header (case-insensitive)
     for (const [k, v] of Object.entries(json.headers)) {
       if (k.toLowerCase() === 'subscription-userinfo') {
         userInfoHeader = v;
@@ -158,7 +269,6 @@ export async function fetchVpnSubTraffic(subUrl, title = '') {
     }
   }
 
-  // Also check if JSON body has upload/download/total directly
   let traffic = null;
   if (userInfoHeader) {
     traffic = parseSubscriptionUserInfo(userInfoHeader);
@@ -171,7 +281,6 @@ export async function fetchVpnSubTraffic(subUrl, title = '') {
   }
 
   if (!traffic) {
-    // If panel didn't provide standard header, create placeholder or basic response
     traffic = {
       upload: 0,
       download: 0,
@@ -189,13 +298,89 @@ export async function fetchVpnSubTraffic(subUrl, title = '') {
     };
   }
 
-  const savedData = {
+  // Extract server hosts/IPs from the subscription body
+  const servers = extractServersFromSubData(json.data);
+
+  const list = getSavedVpnSubs();
+  const id = existingId || ('sub_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4));
+
+  const newSub = {
+    id,
     subUrl: cleanUrl,
-    title: title.trim() || 'کانفیگ فیلترشکن HAPP',
+    title: title.trim() || `کانفیگ ${list.length + 1}`,
     lastChecked: Date.now(),
-    traffic
+    traffic,
+    servers
   };
 
-  saveVpnSub(savedData);
-  return savedData;
+  const existingIndex = list.findIndex((s) => s.id === id || s.subUrl === cleanUrl);
+  if (existingIndex >= 0) {
+    list[existingIndex] = { ...list[existingIndex], ...newSub };
+  } else {
+    list.push(newSub);
+  }
+
+  saveVpnSubs(list);
+  return { sub: newSub, allSubs: list };
+}
+
+/**
+ * Remove a subscription by ID
+ */
+export function deleteVpnSub(id) {
+  let list = getSavedVpnSubs().filter((s) => s.id !== id);
+  saveVpnSubs(list);
+  const activeId = getActiveSubId();
+  if (activeId === id) {
+    setActiveSubId(list.length > 0 ? list[0].id : null);
+  }
+  return list;
+}
+
+/**
+ * Detect which subscription matches the current proxy IP / location
+ */
+export function detectActiveSub(subs, proxyIpData) {
+  if (!subs || subs.length === 0) return null;
+  if (subs.length === 1) return subs[0];
+
+  const currentIp = String(proxyIpData?.query || proxyIpData?.ip || '').trim().toLowerCase();
+  const currentIsp = String(proxyIpData?.isp || proxyIpData?.org || '').trim().toLowerCase();
+  const currentCountry = String(proxyIpData?.countryCode || proxyIpData?.country_code || '').trim().toLowerCase();
+
+  // 1. Direct IP or server match
+  if (currentIp) {
+    for (const sub of subs) {
+      if (Array.isArray(sub.servers)) {
+        for (const s of sub.servers) {
+          if (s === currentIp) {
+            return sub;
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Sub URL domain match (e.g. if proxy IP or reverse lookup matches sub domain)
+  for (const sub of subs) {
+    try {
+      const parsed = new URL(sub.subUrl);
+      const subHost = parsed.hostname.toLowerCase();
+      if (currentIp && subHost === currentIp) {
+        return sub;
+      }
+      if (Array.isArray(sub.servers) && sub.servers.some((s) => s.includes(subHost))) {
+        // High confidence match
+      }
+    } catch {}
+  }
+
+  // 3. Fallback: check saved active ID or return first sub
+  const savedActiveId = getActiveSubId();
+  if (savedActiveId) {
+    const found = subs.find((s) => s.id === savedActiveId);
+    if (found) return found;
+  }
+
+  return subs[0];
 }
