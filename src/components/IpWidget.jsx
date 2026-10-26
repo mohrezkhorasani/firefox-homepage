@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Copy, Check } from 'lucide-react';
+import { RefreshCw, Copy, Check, Radio, Route, HelpCircle, HardDrive, Calendar, ExternalLink } from 'lucide-react';
+import { getSavedVpnSub, HAPP_ROUTING_URL } from '../services/vpnSubService';
+import VpnSubModal from './VpnSubModal';
+import HappRoutingModal from './HappRoutingModal';
 
 function fetchJSONP(url, timeout = 6000) {
   return new Promise((resolve, reject) => {
@@ -92,14 +95,25 @@ export default function IpWidget() {
   const [ip2, setIp2] = useState({ loading: true, data: null, error: false });
   const [hoveredIp, setHoveredIp] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedRouting, setCopiedRouting] = useState(false);
+
+  // VPN Subscription & Routing state
+  const [vpnSub, setVpnSub] = useState(getSavedVpnSub());
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [isRoutingModalOpen, setIsRoutingModalOpen] = useState(false);
 
   useEffect(() => {
     fetchAll();
   }, []);
 
+  function reloadVpnSub() {
+    setVpnSub(getSavedVpnSub());
+  }
+
   async function fetchAll() {
     fetchIranIp();
     fetchForeignIp();
+    reloadVpnSub();
   }
 
   function handleCopy(text) {
@@ -107,6 +121,13 @@ export default function IpWidget() {
     navigator.clipboard?.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  function handleCopyRouting(e) {
+    if (e) e.stopPropagation();
+    navigator.clipboard?.writeText(HAPP_ROUTING_URL);
+    setCopiedRouting(true);
+    setTimeout(() => setCopiedRouting(false), 2000);
   }
 
   // Service 1: Network / Iran IP (with domestic fallbacks)
@@ -186,27 +207,30 @@ export default function IpWidget() {
   const info1 = formatIpDetails(ip1.data, 'Iran');
   const info2 = formatIpDetails(ip2.data, '');
 
+  const traffic = vpnSub?.traffic;
+  const hasSub = !!vpnSub?.subUrl;
+
   return (
     <div className="relative bg-black/40 rounded-xl p-2 border border-white/10 text-xs shadow-inner w-full">
       {/* Floating Sticky Tooltip Card */}
       {hoveredIp && (
         <div 
-          className="absolute bottom-full left-0 mb-3 w-[290px] z-50 bg-slate-900/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl p-3 shadow-2xl shadow-black text-white pointer-events-auto transition-all animate-fade-in"
+          className="absolute bottom-full left-0 mb-3 w-[305px] z-50 bg-slate-900/95 backdrop-blur-xl border border-cyan-500/40 rounded-2xl p-3 shadow-2xl shadow-black text-white pointer-events-auto transition-all animate-fade-in"
           onMouseEnter={() => setHoveredIp(hoveredIp)}
           onMouseLeave={() => setHoveredIp(null)}
         >
           {/* Triangle Pointer Arrow */}
           <div 
             className={`absolute -bottom-1.5 ${hoveredIp === 1 ? 'left-6' : 'left-8'} w-3 h-3 bg-slate-900 border-b border-r border-cyan-500/40 transform rotate-45`}
-          ></div>
+          />
 
           {hoveredIp === 1 ? (
             <div className="space-y-2">
               {/* Header Title */}
               <div className="flex items-center justify-between border-b border-white/10 pb-1.5" dir="rtl">
                 <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span>آی پی اصلی شما</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>آی پی اصلی شما (ایران)</span>
                 </div>
                 <button
                   type="button"
@@ -219,7 +243,7 @@ export default function IpWidget() {
               </div>
 
               {/* Complete Address & Location under title */}
-              <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 font-mono text-[11px] space-y-1" dir="ltr">
+              <div className="bg-black/50 p-2 rounded-xl border border-white/5 font-mono text-[11px] space-y-1" dir="ltr">
                 <div className="text-emerald-400 font-bold flex items-center gap-1.5 text-xs">
                   <span className="text-sm">{info1?.flag || '🌐'}</span>
                   <span>{info1?.ip || '-'}</span>
@@ -246,11 +270,11 @@ export default function IpWidget() {
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {/* Header Title */}
               <div className="flex items-center justify-between border-b border-white/10 pb-1.5" dir="rtl">
                 <div className="flex items-center gap-1.5 font-bold text-xs text-sky-400">
-                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
                   <span>آی پی روت پروفایل HAPP</span>
                 </div>
                 <button
@@ -264,7 +288,7 @@ export default function IpWidget() {
               </div>
 
               {/* Complete Address & Location under title */}
-              <div className="bg-black/50 p-2.5 rounded-xl border border-white/5 font-mono text-[11px] space-y-1" dir="ltr">
+              <div className="bg-black/50 p-2 rounded-xl border border-white/5 font-mono text-[11px] space-y-1" dir="ltr">
                 <div className="text-sky-400 font-bold flex items-center gap-1.5 text-xs">
                   <span className="text-sm">{info2?.flag || '🌐'}</span>
                   <span>{info2?.ip || '-'}</span>
@@ -288,6 +312,90 @@ export default function IpWidget() {
                   <span className="text-gray-400">ارائه‌دهنده: </span>
                   <span className="font-semibold text-sky-300">{info2?.isp || '-'}</span>
                 </div>
+              </div>
+
+              {/* VPN Subscription Traffic Info Section */}
+              <div className="bg-sky-950/40 p-2.5 rounded-xl border border-sky-500/25 space-y-1.5 text-xs" dir="rtl">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[11px] text-sky-300 flex items-center gap-1">
+                    <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>ترافیک اشتراک فیلترشکن</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      setHoveredIp(null);
+                      setIsSubModalOpen(true);
+                    }}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 underline"
+                  >
+                    {hasSub ? 'تنظیمات' : 'افزودن لینک ساب'}
+                  </button>
+                </div>
+
+                {hasSub && traffic ? (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-gray-300">حجم باقی‌مانده:</span>
+                      <span className="font-black text-emerald-400">{traffic.remainingText}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-gray-400">
+                      <span>مصرف شده: {traffic.usedText}</span>
+                      <span>کل بسته: {traffic.totalText}</span>
+                    </div>
+
+                    {traffic.total > 0 && (
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            traffic.percentUsed > 85
+                              ? 'bg-rose-500'
+                              : traffic.percentUsed > 60
+                              ? 'bg-amber-400'
+                              : 'bg-emerald-400'
+                          }`}
+                          style={{ width: `${traffic.percentUsed}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {traffic.daysLeft !== null && (
+                      <div className="text-[10px] text-amber-300 flex items-center justify-between pt-0.5">
+                        <span>اعتبار: {traffic.expireFormatted}</span>
+                        <span>({traffic.daysLeft > 0 ? `${traffic.daysLeft} روز باقی‌مانده` : 'منقضی'})</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[10.5px] text-gray-400 pt-0.5">
+                    هنوز لینک ساب اضافه نشده است. برای مشاهده حجم و ترافیک کلیک کنید.
+                  </p>
+                )}
+              </div>
+
+              {/* HAPP Routing Profile Quick Buttons */}
+              <div className="pt-1 flex items-center gap-1.5" dir="rtl">
+                <button
+                  type="button"
+                  onClick={handleCopyRouting}
+                  className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-[10.5px] font-semibold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 transition"
+                  title="کپی لینک روتینگ HAPP"
+                >
+                  {copiedRouting ? <Check className="w-3 h-3 text-emerald-400" /> : <Route className="w-3 h-3" />}
+                  <span>{copiedRouting ? 'کپی شد!' : 'کپی روتینگ HAPP'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHoveredIp(null);
+                    setIsRoutingModalOpen(true);
+                  }}
+                  className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-[10.5px] font-medium bg-white/10 hover:bg-white/15 text-gray-200 border border-white/10 transition"
+                  title="آموزش افزودن روتینگ"
+                >
+                  <HelpCircle className="w-3 h-3 text-cyan-400" />
+                  <span>آموزش</span>
+                </button>
               </div>
             </div>
           )}
@@ -334,7 +442,7 @@ export default function IpWidget() {
           )}
         </div>
 
-        {/* Service 2 (Foreign / Proxy) */}
+        {/* Service 2 (Foreign / Proxy / HAPP) */}
         <div 
           className="overflow-hidden pt-1 border-t border-white/10 cursor-pointer rounded-md hover:bg-white/5 p-0.5 transition" 
           onMouseEnter={() => setHoveredIp(2)}
@@ -346,17 +454,92 @@ export default function IpWidget() {
             <span className="text-red-400 text-[10px] font-sans">خطای سرویس خارجی</span>
           ) : (
             <>
-              <div className="flex items-center gap-1.5 leading-none">
-                <span className="text-xs select-none shrink-0">{info2?.flag || '🌐'}</span>
-                <span className="font-bold text-sky-400 truncate">{info2?.ip}</span>
+              <div className="flex items-center justify-between leading-none">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="text-xs select-none shrink-0">{info2?.flag || '🌐'}</span>
+                  <span className="font-bold text-sky-400 truncate">{info2?.ip}</span>
+                </div>
+
+                {/* Sub & Routing Quick Action Icons */}
+                <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => setIsSubModalOpen(true)}
+                    className="text-gray-400 hover:text-cyan-300 p-0.5 rounded transition"
+                    title={traffic?.remainingText ? `حجم باقی‌مانده ساب: ${traffic.remainingText}` : 'تنظیم لینک ساب فیلترشکن'}
+                  >
+                    <Radio className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyRouting}
+                    className="text-gray-400 hover:text-sky-300 p-0.5 rounded transition"
+                    title="کپی روتینگ HAPP"
+                  >
+                    {copiedRouting ? <Check className="w-3 h-3 text-emerald-400" /> : <Route className="w-3 h-3" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRoutingModalOpen(true)}
+                    className="text-gray-400 hover:text-white p-0.5 rounded transition"
+                    title="آموزش روتینگ HAPP"
+                  >
+                    <HelpCircle className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
+
               <div className="text-[9px] text-gray-300 truncate mt-0.5">
                 {info2?.text}
               </div>
+
+              {/* Mini traffic pill under IP 2 if sub is configured */}
+              {hasSub && traffic && (
+                <div className="mt-1 pt-1 border-t border-white/5 font-sans" dir="rtl">
+                  <div className="flex items-center justify-between text-[9px] leading-tight">
+                    <span className="text-emerald-400 font-bold truncate">
+                      باقی‌مانده: {traffic.remainingText}
+                    </span>
+                    {traffic.daysLeft !== null && (
+                      <span className="text-[8.5px] text-gray-400 truncate">
+                        {traffic.daysLeft > 0 ? `${traffic.daysLeft} روز` : 'منقضی'}
+                      </span>
+                    )}
+                  </div>
+                  {traffic.total > 0 && (
+                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden mt-0.5">
+                      <div
+                        className={`h-full rounded-full ${
+                          traffic.percentUsed > 85
+                            ? 'bg-rose-500'
+                            : traffic.percentUsed > 60
+                            ? 'bg-amber-400'
+                            : 'bg-emerald-400'
+                        }`}
+                        style={{ width: `${traffic.percentUsed}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* VPN Subscription Modal */}
+      <VpnSubModal
+        isOpen={isSubModalOpen}
+        onClose={() => setIsSubModalOpen(false)}
+        onUpdated={reloadVpnSub}
+        onOpenRoutingModal={() => setIsRoutingModalOpen(true)}
+      />
+
+      {/* Happ Routing Tutorial Modal */}
+      <HappRoutingModal
+        isOpen={isRoutingModalOpen}
+        onClose={() => setIsRoutingModalOpen(false)}
+      />
     </div>
   );
 }

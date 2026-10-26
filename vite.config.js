@@ -214,6 +214,11 @@ function apiProxyPlugin() {
 
             const elapsed = Date.now() - start;
             const contentType = fetchRes.headers.get('content-type') || '';
+            const responseHeaders = {};
+            fetchRes.headers.forEach((val, key) => {
+              responseHeaders[key.toLowerCase()] = val;
+            });
+
             let responseData;
             if (contentType.includes('application/json')) {
               responseData = await fetchRes.json();
@@ -233,6 +238,7 @@ function apiProxyPlugin() {
               status: fetchRes.status,
               statusText: fetchRes.statusText,
               time: elapsed,
+              headers: responseHeaders,
               data: responseData
             }));
           } catch (err) {
