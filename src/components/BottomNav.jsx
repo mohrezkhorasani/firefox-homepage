@@ -1,10 +1,114 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Home, Wrench, Plus, X, Layers, Check } from 'lucide-react';
 import IpWidget from './IpWidget';
+import ServerPingWidget from './ServerPingWidget';
+import ServerExtendModal from './ServerExtendModal';
+import { DEFAULT_SERVERS } from '../data/defaultServers';
+import { pingHost } from '../services/pingService';
 
 export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPageName, setNewPageName] = useState('');
+
+  // Servers State with localStorage persistence
+  const [servers, setServers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('homepage_servers_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to parse saved servers:', e);
+    }
+    return DEFAULT_SERVERS;
+  });
+
+  const [pingResults, setPingResults] = useState({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExtendOpen, setIsExtendOpen] = useState(false);
+
+  // Persist servers
+  useEffect(() => {
+    localStorage.setItem('homepage_servers_v1', JSON.stringify(servers));
+  }, [servers]);
+
+  // Ping a single host
+  const pingSingle = useCallback(async (id, host) => {
+    setPingResults((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], checking: true }
+    }));
+    const res = await pingHost(host);
+    setPingResults((prev) => ({
+      ...prev,
+      [id]: { ...res, checking: false, lastChecked: Date.now() }
+    }));
+  }, []);
+
+  // Ping all hosts in parallel batches
+  const pingAll = useCallback(async (targetList) => {
+    const list = targetList || servers;
+    if (!list || list.length === 0) return;
+
+    setIsRefreshing(true);
+    setPingResults((prev) => {
+      const next = { ...prev };
+      list.forEach((s) => {
+        next[s.id] = { ...(next[s.id] || {}), checking: true };
+      });
+      return next;
+    });
+
+    const chunkSize = 4;
+    for (let i = 0; i < list.length; i += chunkSize) {
+      const chunk = list.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map(async (s) => {
+          const res = await pingHost(s.host);
+          setPingResults((prev) => ({
+            ...prev,
+            [s.id]: { ...res, checking: false, lastChecked: Date.now() }
+          }));
+        })
+      );
+    }
+    setIsRefreshing(false);
+  }, [servers]);
+
+  // Initial ping on mount & 45s periodic refresh
+  useEffect(() => {
+    pingAll(servers);
+    const interval = setInterval(() => {
+      pingAll();
+    }, 45000);
+    return () => clearInterval(interval);
+  }, []);
+
+  function handleTogglePin(id) {
+    setServers((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, pinned: !s.pinned } : s))
+    );
+  }
+
+  function handleAddServer(newServer) {
+    setServers((prev) => [newServer, ...prev]);
+    pingSingle(newServer.id, newServer.host);
+  }
+
+  function handleDeleteServer(id) {
+    setServers((prev) => prev.filter((s) => s.id !== id));
+    setPingResults((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function handleResetDefaults() {
+    setServers(DEFAULT_SERVERS);
+    pingAll(DEFAULT_SERVERS);
+  }
 
   function handleCreatePage(e) {
     e.preventDefault();
@@ -22,6 +126,15 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
   return (
     <>
       <div className="fixed bottom-0 left-0 z-50 p-2.5 bg-black/70 backdrop-blur-md border-t border-r border-white/10 rounded-tr-2xl shadow-2xl flex flex-col gap-2 w-[215px]">
+        {/* Server Ping Widget directly above IP widget */}
+        <ServerPingWidget
+          servers={servers}
+          pingResults={pingResults}
+          onRefreshAll={() => pingAll(servers)}
+          onOpenExtend={() => setIsExtendOpen(true)}
+          isRefreshing={isRefreshing}
+        />
+
         {/* Simple IP Widget directly above navigation menu */}
         <IpWidget />
 
@@ -112,6 +225,21 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
           </div>
         </div>
       )}
+
+      {/* Extended Server Ping Modal */}
+      <ServerExtendModal
+        isOpen={isExtendOpen}
+        onClose={() => setIsExtendOpen(false)}
+        servers={servers}
+        pingResults={pingResults}
+        onRefreshAll={() => pingAll(servers)}
+        onRefreshSingle={pingSingle}
+        onTogglePin={handleTogglePin}
+        onAddServer={handleAddServer}
+        onDeleteServer={handleDeleteServer}
+        onResetDefaults={handleResetDefaults}
+        isRefreshing={isRefreshing}
+      />
     </>
   );
 }
