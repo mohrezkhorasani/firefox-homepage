@@ -62,6 +62,17 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
     }
   }, [isOpen]);
 
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const currentProxyIp = proxyIpData?.query || proxyIpData?.ip || '';
@@ -141,8 +152,15 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
   const traffic = selectedSub?.traffic;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in" dir="rtl">
-      <div className="bg-slate-900/95 border border-white/20 rounded-2xl w-full max-w-xl p-6 shadow-2xl text-white relative max-h-[90vh] overflow-y-auto scrollbar-thin">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      dir="rtl"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-900 border border-white/20 rounded-2xl w-full max-w-xl p-6 shadow-2xl text-white relative max-h-[88vh] overflow-y-auto scrollbar-thin animate-scale-up"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
           <div className="flex items-center gap-3">
@@ -160,8 +178,8 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition"
-            title="بستن"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition"
+            title="بستن پنجره"
           >
             <X className="w-5 h-5" />
           </button>
@@ -461,6 +479,17 @@ export default function VpnSubModal({ isOpen, onClose, onUpdated, onOpenRoutingM
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
+        </div>
+
+        {/* Bottom Close Button */}
+        <div className="mt-4 pt-3 border-t border-white/10 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-1.5 text-xs font-semibold text-gray-300 hover:text-white bg-white/10 hover:bg-white/15 rounded-xl transition"
+          >
+            بستن
+          </button>
         </div>
       </div>
     </div>

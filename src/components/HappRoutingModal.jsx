@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, ExternalLink, Route, ShieldCheck, Zap, Globe, Layers, Sparkles } from 'lucide-react';
+import { X, Copy, Check, ExternalLink, Route, ShieldCheck, Zap, Layers, Sparkles } from 'lucide-react';
 import { HAPP_ROUTING_URL } from '../services/vpnSubService';
 
 export default function HappRoutingModal({ isOpen, onClose }) {
@@ -18,8 +18,15 @@ export default function HappRoutingModal({ isOpen, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in" dir="rtl">
-      <div className="bg-slate-900/95 border border-white/20 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl text-white relative scrollbar-thin">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      dir="rtl"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-900 border border-white/20 rounded-2xl w-full max-w-xl max-h-[88vh] overflow-y-auto p-6 shadow-2xl text-white relative scrollbar-thin animate-scale-up"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-5">
           <div className="flex items-center gap-3">
@@ -37,7 +44,7 @@ export default function HappRoutingModal({ isOpen, onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition"
             title="بستن"
           >
             <X className="w-5 h-5" />
