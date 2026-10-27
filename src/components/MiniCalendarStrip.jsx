@@ -1,34 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { Maximize2, Calendar, CheckSquare, Clock, AlertCircle } from 'lucide-react';
+import { Maximize2, Calendar, CheckSquare, Clock, AlertCircle, ChevronRight, ChevronLeft, RotateCcw } from 'lucide-react';
 import { getMiniStripDays, toPersianDigits, getGoogleConfig } from '../services/calendarService';
 
 export default function MiniCalendarStrip({ onExpand, onOpenGoogleModal }) {
   const [days, setDays] = useState([]);
+  const [pageOffset, setPageOffset] = useState(0);
   const [hoveredDay, setHoveredDay] = useState(null);
   const [config, setConfig] = useState(getGoogleConfig());
 
-  function reloadDays() {
-    setDays(getMiniStripDays(3, 5)); // 3 days ago to 5 days ahead = 9 days
+  function reloadDays(offset = pageOffset) {
+    setDays(getMiniStripDays(3, 5, offset)); // 9 days per page
     setConfig(getGoogleConfig());
   }
 
   useEffect(() => {
-    reloadDays();
-    const interval = setInterval(reloadDays, 60000);
+    reloadDays(pageOffset);
+  }, [pageOffset]);
+
+  useEffect(() => {
+    const interval = setInterval(() => reloadDays(pageOffset), 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [pageOffset]);
+
+  // Determine current display month and year
+  const activeMonthName = days[Math.floor(days.length / 2)]?.monthName || days[0]?.monthName;
+  const activeYear = days[Math.floor(days.length / 2)]?.jy || days[0]?.jy;
 
   return (
-    <div className="relative flex flex-col items-center justify-center px-2 py-1 select-none" dir="rtl">
-      {/* Top micro bar: Month title + Google Status + Expand Button */}
-      <div className="flex items-center justify-between w-full mb-1.5 px-1 text-xs">
+    <div className="relative flex flex-col items-center justify-center px-1 py-1 select-none" dir="rtl">
+      {/* Top micro bar: Month title + Google Status + Pagination Nav + Expand Button */}
+      <div className="flex items-center justify-between w-full mb-1.5 px-1 text-xs gap-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="font-bold text-gray-200 text-[11px] bg-black/30 px-2 py-0.5 rounded-md border border-white/10">
-            {days.find((d) => d.isToday)?.monthName} {days.find((d) => d.isToday)?.jy}
+          <span className="font-bold text-gray-200 text-[11px] bg-black/30 px-2 py-0.5 rounded-md border border-white/10 shrink-0">
+            {activeMonthName} {activeYear}
           </span>
+
+          {/* Pagination Controls (Next / Prev Page of days) */}
+          <div className="flex items-center gap-0.5 bg-black/40 border border-white/10 rounded-lg p-0.5" dir="rtl">
+            <button
+              onClick={() => setPageOffset((prev) => prev - 1)}
+              className="p-1 hover:bg-white/10 text-gray-300 hover:text-white rounded transition"
+              title="روزهای قبلی (عقب‌تر)"
+            >
+              <ChevronRight className="w-3 h-3" />
+            </button>
+
+            {pageOffset !== 0 && (
+              <button
+                onClick={() => setPageOffset(0)}
+                className="px-1 py-0.5 text-[9px] font-bold text-cyan-300 hover:bg-white/10 rounded transition"
+                title="بازگشت به امروز"
+              >
+                امروز
+              </button>
+            )}
+
+            <button
+              onClick={() => setPageOffset((prev) => prev + 1)}
+              className="p-1 hover:bg-white/10 text-gray-300 hover:text-white rounded transition"
+              title="روزهای بعدی (جلوتر)"
+            >
+              <ChevronLeft className="w-3 h-3" />
+            </button>
+          </div>
+
           <button
             onClick={onOpenGoogleModal}
-            className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition ${
+            className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition shrink-0 ${
               config.connected
                 ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
                 : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -45,7 +83,7 @@ export default function MiniCalendarStrip({ onExpand, onOpenGoogleModal }) {
 
         <button
           onClick={onExpand}
-          className="flex items-center gap-1 text-[11px] font-medium text-cyan-300 hover:text-cyan-200 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/30 px-2 py-0.5 rounded-md transition shadow-sm"
+          className="flex items-center gap-1 text-[11px] font-medium text-cyan-300 hover:text-cyan-200 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/30 px-2 py-0.5 rounded-md transition shadow-sm shrink-0"
           title="مشاهده تقویم کامل در صفحه"
         >
           <Maximize2 className="w-3 h-3" />

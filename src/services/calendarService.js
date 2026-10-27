@@ -434,13 +434,15 @@ export function getDayDetails(gDate, allGoogleEvents = null, allTasks = null) {
  * Generates an array of day objects for the mini calendar strip
  * Range: from daysBefore (default 3 days ago) to daysAfter (e.g. today + 6 days)
  */
-export function getMiniStripDays(daysBefore = 3, daysAfter = 6) {
+export function getMiniStripDays(daysBefore = 3, daysAfter = 5, pageOffset = 0) {
   const days = [];
   const googleEvents = getGoogleEvents();
   const tasks = getLocalTasks();
   const today = new Date();
+  const totalDays = daysBefore + daysAfter + 1; // e.g. 3 + 5 + 1 = 9 days per page
+  const shift = pageOffset * totalDays;
 
-  for (let offset = -daysBefore; offset <= daysAfter; offset++) {
+  for (let offset = -daysBefore + shift; offset <= daysAfter + shift; offset++) {
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + offset);
     days.push(getDayDetails(targetDate, googleEvents, tasks));
