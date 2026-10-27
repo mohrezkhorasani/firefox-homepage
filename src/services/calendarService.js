@@ -100,6 +100,119 @@ export const PERSIAN_FIXED_EVENTS = [
   { month: 12, day: 29, title: 'ملی شدن صنعت نفت ایران', isHoliday: true }
 ];
 
+// Official Islamic / Lunar Events & Holidays observed in Iran (Month: 1=Muharram to 12=Dhu al-Hijjah)
+export const ISLAMIC_EVENTS = [
+  // محرم (1)
+  { month: 1, day: 9, title: 'تاسوعای حسینی', isHoliday: true },
+  { month: 1, day: 10, title: 'عاشورای حسینی', isHoliday: true },
+  { month: 1, day: 12, title: 'شهادت امام زین‌العابدین (ع)', isHoliday: false },
+
+  // صفر (2)
+  { month: 2, day: 7, title: 'ولادت امام موسی کاظم (ع) / شهادت امام حسن مجتبی (ع)', isHoliday: false },
+  { month: 2, day: 20, title: 'اربعین حسینی', isHoliday: true },
+  { month: 2, day: 28, title: 'رحلت حضرت رسول اکرم (ص) و شهادت امام حسن مجتبی (ع)', isHoliday: true },
+  { month: 2, day: 29, title: 'شهادت امام رضا (ع)', isHoliday: true },
+  { month: 2, day: 30, title: 'شهادت امام رضا (ع)', isHoliday: true },
+
+  // ربیع‌الاول (3)
+  { month: 3, day: 1, title: 'هجرت پیامبر اکرم از مکه به مدینه', isHoliday: false },
+  { month: 3, day: 8, title: 'شهادت امام حسن عسکری (ع) و آغاز امامت امام عصر (عج)', isHoliday: true },
+  { month: 3, day: 9, title: 'آغاز امامت حضرت ولی عصر (عج)', isHoliday: false },
+  { month: 3, day: 12, title: 'ولادت پیامبر اکرم (ص) به روایت اهل سنت (آغاز هفته وحدت)', isHoliday: false },
+  { month: 3, day: 17, title: 'میلاد حضرت رسول اکرم (ص) و امام جعفر صادق (ع)', isHoliday: true },
+
+  // ربیع‌الثانی (4)
+  { month: 4, day: 8, title: 'ولادت امام حسن عسکری (ع)', isHoliday: false },
+  { month: 4, day: 10, title: 'وفات حضرت معصومه (س)', isHoliday: false },
+
+  // جمادی‌الاول (5)
+  { month: 5, day: 5, title: 'ولادت حضرت زینب (س) و روز پرستار', isHoliday: false },
+  { month: 5, day: 13, title: 'شهادت حضرت فاطمه زهرا (س) به روایتی', isHoliday: false },
+
+  // جمادی‌الثانی (6)
+  { month: 6, day: 3, title: 'شهادت حضرت فاطمه زهرا (س)', isHoliday: true },
+  { month: 6, day: 13, title: 'وفات حضرت ام‌البنین (س) / روز تکریم مادران و همسران شهدا', isHoliday: false },
+  { month: 6, day: 20, title: 'ولادت حضرت فاطمه زهرا (س) و روز زن و مادر', isHoliday: false },
+
+  // رجب (7)
+  { month: 7, day: 1, title: 'ولادت امام محمد باقر (ع)', isHoliday: false },
+  { month: 7, day: 3, title: 'شهادت امام علی‌نقی الهادی (ع)', isHoliday: false },
+  { month: 7, day: 10, title: 'ولادت امام محمدتقی جوادالائمه (ع)', isHoliday: false },
+  { month: 7, day: 13, title: 'ولادت امام علی (ع) و روز پدر', isHoliday: true },
+  { month: 7, day: 15, title: 'وفات حضرت زینب (س)', isHoliday: false },
+  { month: 7, day: 25, title: 'شهادت امام موسی کاظم (ع)', isHoliday: false },
+  { month: 7, day: 27, title: 'مبعث رسول اکرم (ص)', isHoliday: true },
+
+  // شعبان (8)
+  { month: 8, day: 3, title: 'ولادت امام حسین (ع) و روز پاسدار', isHoliday: false },
+  { month: 8, day: 4, title: 'ولادت حضرت ابوالفضل العباس (ع) و روز جانباز', isHoliday: false },
+  { month: 8, day: 5, title: 'ولادت امام سجاد (ع)', isHoliday: false },
+  { month: 8, day: 11, title: 'ولادت حضرت علی‌اکبر (ع) و روز جوان', isHoliday: false },
+  { month: 8, day: 15, title: 'ولادت حضرت مهدی (عج) و جشن نیمه شعبان', isHoliday: true },
+
+  // رمضان (9)
+  { month: 9, day: 10, title: 'وفات حضرت خدیجه (س)', isHoliday: false },
+  { month: 9, day: 15, title: 'ولادت امام حسن مجتبی (ع)', isHoliday: false },
+  { month: 9, day: 18, title: 'شب قدر (شب نوزدهم)', isHoliday: false },
+  { month: 9, day: 19, title: 'ضربت خوردن حضرت علی (ع)', isHoliday: false },
+  { month: 9, day: 20, title: 'شب قدر (شب بیست و یکم)', isHoliday: false },
+  { month: 9, day: 21, title: 'شهادت حضرت علی (ع)', isHoliday: true },
+  { month: 9, day: 22, title: 'شب قدر (شب بیست و سوم)', isHoliday: false },
+
+  // شوال (10)
+  { month: 10, day: 1, title: 'عید سعید فطر', isHoliday: true },
+  { month: 10, day: 2, title: 'تعطیلی به مناسبت عید سعید فطر', isHoliday: true },
+  { month: 10, day: 25, title: 'شهادت امام جعفر صادق (ع)', isHoliday: true },
+
+  // ذی‌القعده (11)
+  { month: 11, day: 1, title: 'ولادت حضرت معصومه (س) و روز دختر', isHoliday: false },
+  { month: 11, day: 11, title: 'ولادت حضرت امام رضا (ع)', isHoliday: false },
+  { month: 11, day: 29, title: 'شهادت امام محمدتقی جوادالائمه (ع)', isHoliday: false },
+  { month: 11, day: 30, title: 'شهادت امام محمدتقی جوادالائمه (ع)', isHoliday: false },
+
+  // ذی‌الحجه (12)
+  { month: 12, day: 1, title: 'سالروز ازدواج حضرت علی (ع) و حضرت زهرا (س)', isHoliday: false },
+  { month: 12, day: 7, title: 'شهادت امام محمد باقر (ع)', isHoliday: false },
+  { month: 12, day: 9, title: 'روز عرفه / روز نیایش', isHoliday: false },
+  { month: 12, day: 10, title: 'عید سعید قربان', isHoliday: true },
+  { month: 12, day: 15, title: 'ولادت امام علی‌النقی الهادی (ع)', isHoliday: false },
+  { month: 12, day: 18, title: 'عید سعید غدیر خم', isHoliday: true },
+  { month: 12, day: 24, title: 'روز مباهله', isHoliday: false }
+];
+
+/**
+ * Returns Hijri (Islamic lunar) date { hy, hm, hd } for a Gregorian Date
+ * using standard Iranian-aligned civil Islamic calendar.
+ */
+export function getHijriDate(gDate) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-u-ca-islamic-civil', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric'
+    }).formatToParts(gDate);
+
+    let hm = 1, hd = 1, hy = 1446;
+    for (const p of parts) {
+      if (p.type === 'month') hm = parseInt(p.value, 10);
+      if (p.type === 'day') hd = parseInt(p.value, 10);
+      if (p.type === 'year') hy = parseInt(p.value, 10);
+    }
+    return { hy, hm, hd };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Returns Islamic lunar events for a Gregorian Date
+ */
+export function getIslamicEvents(gDate) {
+  const hijri = getHijriDate(gDate);
+  if (!hijri) return [];
+  return ISLAMIC_EVENTS.filter((e) => e.month === hijri.hm && e.day === hijri.hd);
+}
+
 /**
  * Astronomical Jalali Conversion (100% accurate)
  */
@@ -158,10 +271,19 @@ export function getJalaaliMonthLength(jy, jm) {
 }
 
 /**
- * Returns events for a specific Jalali day
+ * Returns events for a specific Jalali day (including dynamic Islamic lunar occasions)
  */
-export function getEventsForJalaliDay(jy, jm, jd) {
-  return PERSIAN_FIXED_EVENTS.filter((e) => e.month === jm && e.day === jd);
+export function getEventsForJalaliDay(jy, jm, jd, gDate = null) {
+  const solarEvents = PERSIAN_FIXED_EVENTS.filter((e) => e.month === jm && e.day === jd);
+  let targetDate = gDate;
+  if (!targetDate) {
+    const gObj = toGregorian(jy, jm, jd);
+    targetDate = new Date(gObj.gy, gObj.gm - 1, gObj.gd);
+  }
+  const lunarEvents = getIslamicEvents(targetDate);
+
+  // Return combined unique events
+  return [...solarEvents, ...lunarEvents];
 }
 
 /**
@@ -169,8 +291,8 @@ export function getEventsForJalaliDay(jy, jm, jd) {
  */
 export function isDayHoliday(gDate, jy, jm, jd) {
   // Friday is weekly holiday
-  if (gDate.getDay() === 5) return true;
-  const events = getEventsForJalaliDay(jy, jm, jd);
+  if (gDate && gDate.getDay() === 5) return true;
+  const events = getEventsForJalaliDay(jy, jm, jd, gDate);
   return events.some((e) => e.isHoliday);
 }
 
@@ -389,7 +511,7 @@ export function getDayDetails(gDate, allGoogleEvents = null, allTasks = null) {
   );
 
   // Official occasions & holiday
-  const officialEvents = getEventsForJalaliDay(jy, jm, jd);
+  const officialEvents = getEventsForJalaliDay(jy, jm, jd, gDate);
   const isFriday = gDate.getDay() === 5;
   const isHoliday = isFriday || officialEvents.some((e) => e.isHoliday);
 
@@ -504,7 +626,9 @@ export function getFullMonthData(jy, jm) {
   // All events in this current month for the extend section
   const monthOfficialEvents = [];
   for (let d = 1; d <= monthLength; d++) {
-    const evts = getEventsForJalaliDay(jy, jm, d);
+    const gObj = toGregorian(jy, jm, d);
+    const dateObj = new Date(gObj.gy, gObj.gm - 1, gObj.gd);
+    const evts = getEventsForJalaliDay(jy, jm, d, dateObj);
     evts.forEach((e) => monthOfficialEvents.push({ ...e, jd: d }));
   }
 
