@@ -8,6 +8,7 @@ import ToolsPage from './components/ToolsPage';
 import TodoWidget from './components/TodoWidget';
 import MarketWidget from './components/MarketWidget';
 import ApiMonitorWidget from './components/ApiMonitorWidget';
+import NetworkSpeedWidget from './components/NetworkSpeedWidget';
 import { DEFAULT_BOOKMARKS } from './data/defaultBookmarks';
 import { DEFAULT_TAGS } from './data/defaultTags';
 
@@ -28,8 +29,19 @@ export default function App() {
   const [activePage, setActivePage] = useState('home');
 
   const [bookmarks, setBookmarks] = useState(() => {
-    const saved = localStorage.getItem('homepage_bookmarks');
-    return saved ? JSON.parse(saved) : DEFAULT_BOOKMARKS;
+    const saved = localStorage.getItem('homepage_bookmarks_v3');
+    if (saved) return JSON.parse(saved);
+    const oldV2 = localStorage.getItem('homepage_bookmarks_v2');
+    if (oldV2) {
+      try {
+        const parsed = JSON.parse(oldV2);
+        return parsed.map(b => {
+          const def = DEFAULT_BOOKMARKS.find(d => d.id === b.id);
+          return def ? { ...b, customBgColor: b.customBgColor || def.customBgColor } : b;
+        });
+      } catch {}
+    }
+    return DEFAULT_BOOKMARKS;
   });
 
   const [tags, setTags] = useState(() => {
@@ -51,7 +63,7 @@ export default function App() {
   }, [pages]);
 
   useEffect(() => {
-    localStorage.setItem('homepage_bookmarks', JSON.stringify(bookmarks));
+    localStorage.setItem('homepage_bookmarks_v3', JSON.stringify(bookmarks));
   }, [bookmarks]);
 
   useEffect(() => {
@@ -135,6 +147,9 @@ export default function App() {
       >
         <i className="fas fa-image text-xl"></i>
       </button>
+
+      {/* Internet Speed Widget beside Background Button */}
+      <NetworkSpeedWidget />
 
       {/* Top-Right API Monitor Widget */}
       <ApiMonitorWidget />
