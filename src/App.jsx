@@ -138,17 +138,17 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen text-white p-4 md:p-8 overflow-x-hidden pb-24">
-      {/* Background Change Button */}
+    <div className="min-h-screen text-white p-4 md:p-8 overflow-x-hidden pb-24 relative">
+      {/* Background Change Button (Absolute at page top so it scrolls naturally with page) */}
       <button 
         onClick={nextBackground}
-        className="fixed top-4 left-4 glass p-3 rounded-full text-white z-50 hover:scale-110 transition" 
+        className="absolute top-4 left-4 glass p-3 rounded-full text-white z-40 hover:scale-110 transition shadow-lg" 
         title="تغییر پس‌زمینه"
       >
         <i className="fas fa-image text-xl"></i>
       </button>
 
-      {/* Internet Speed Widget beside Background Button */}
+      {/* Internet Speed Widget beside Background Button (Absolute at page top, stacked download/upload) */}
       <NetworkSpeedWidget />
 
       {/* Top-Right API Monitor Widget */}
