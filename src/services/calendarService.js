@@ -180,6 +180,108 @@ export const ISLAMIC_EVENTS = [
   { month: 12, day: 24, title: 'روز مباهله', isHoliday: false }
 ];
 
+// Major International & Gregorian Events / Celebrations (Month: 1-12, Day: 1-31)
+export const GREGORIAN_EVENTS = [
+  // January (1)
+  { month: 1, day: 1, title: 'آغاز سال نو میلادی (New Year)', isHoliday: false },
+  { month: 1, day: 4, title: 'روز جهانی خط بریل (Braille Day)', isHoliday: false },
+  { month: 1, day: 24, title: 'روز جهانی آموزش (Education Day)', isHoliday: false },
+  { month: 1, day: 27, title: 'روز جهانی یادبود قربانیان هولوکاست', isHoliday: false },
+
+  // February (2)
+  { month: 2, day: 4, title: 'روز جهانی سرطان (World Cancer Day)', isHoliday: false },
+  { month: 2, day: 11, title: 'روز جهانی زنان و دختران در علم', isHoliday: false },
+  { month: 2, day: 13, title: 'روز جهانی رادیو (World Radio Day)', isHoliday: false },
+  { month: 2, day: 14, title: 'روز ولنتاین / روز عشق (Valentine\'s Day)', isHoliday: false },
+  { month: 2, day: 20, title: 'روز جهانی عدالت اجتماعی', isHoliday: false },
+  { month: 2, day: 21, title: 'روز جهانی زبان مادری (Mother Language Day)', isHoliday: false },
+
+  // March (3)
+  { month: 3, day: 1, title: 'روز جهانی رفع تبعیض (Zero Discrimination Day)', isHoliday: false },
+  { month: 3, day: 3, title: 'روز جهانی حیات وحش (World Wildlife Day)', isHoliday: false },
+  { month: 3, day: 8, title: 'روز جهانی زن (International Women\'s Day)', isHoliday: false },
+  { month: 3, day: 14, title: 'روز عدد پی (Pi Day) و روز بین‌المللی ریاضیات', isHoliday: false },
+  { month: 3, day: 15, title: 'روز جهانی حقوق مصرف‌کننده', isHoliday: false },
+  { month: 3, day: 20, title: 'روز جهانی شادی (International Day of Happiness)', isHoliday: false },
+  { month: 3, day: 21, title: 'روز جهانی نوروز (Nowruz) و روز جهانی شعر', isHoliday: false },
+  { month: 3, day: 22, title: 'روز جهانی آب (World Water Day)', isHoliday: false },
+  { month: 3, day: 23, title: 'روز جهانی هواشناسی (World Meteorological Day)', isHoliday: false },
+  { month: 3, day: 27, title: 'روز جهانی تئاتر (World Theatre Day)', isHoliday: false },
+
+  // April (4)
+  { month: 4, day: 1, title: 'روز دروغ اول آوریل (April Fools\' Day)', isHoliday: false },
+  { month: 4, day: 2, title: 'روز جهانی اوتیسم (World Autism Awareness Day)', isHoliday: false },
+  { month: 4, day: 7, title: 'روز جهانی بهداشت و سلامتی (World Health Day)', isHoliday: false },
+  { month: 4, day: 12, title: 'روز بین‌المللی پرواز فضایی انسان (یوری گاگارین)', isHoliday: false },
+  { month: 4, day: 22, title: 'روز جهانی زمین پاک (Earth Day)', isHoliday: false },
+  { month: 4, day: 23, title: 'روز جهانی کتاب و حق نشر (World Book Day)', isHoliday: false },
+  { month: 4, day: 29, title: 'روز جهانی رقص (International Dance Day)', isHoliday: false },
+
+  // May (5)
+  { month: 5, day: 1, title: 'روز جهانی کارگر (International Workers\' Day)', isHoliday: false },
+  { month: 5, day: 3, title: 'روز جهانی آزادی مطبوعات (World Press Freedom Day)', isHoliday: false },
+  { month: 5, day: 8, title: 'روز جهانی صلیب سرخ و هلال احمر', isHoliday: false },
+  { month: 5, day: 15, title: 'روز جهانی خانواده (International Day of Families)', isHoliday: false },
+  { month: 5, day: 17, title: 'روز جهانی ارتباطات و جامعه اطلاعاتی', isHoliday: false },
+  { month: 5, day: 18, title: 'روز جهانی موزه‌ها (International Museum Day)', isHoliday: false },
+  { month: 5, day: 31, title: 'روز جهانی بدون دخانیات (World No Tobacco Day)', isHoliday: false },
+
+  // June (6)
+  { month: 6, day: 1, title: 'روز جهانی کودک (International Children\'s Day)', isHoliday: false },
+  { month: 6, day: 5, title: 'روز جهانی محیط زیست (World Environment Day)', isHoliday: false },
+  { month: 6, day: 8, title: 'روز جهانی اقیانوس‌ها (World Oceans Day)', isHoliday: false },
+  { month: 6, day: 14, title: 'روز جهانی اهدای خون (World Blood Donor Day)', isHoliday: false },
+  { month: 6, day: 20, title: 'روز جهانی پناهندگان (World Refugee Day)', isHoliday: false },
+  { month: 6, day: 21, title: 'روز جهانی موسیقی (Fête de la Musique) و یوگا', isHoliday: false },
+  { month: 6, day: 23, title: 'روز جهانی المپیک (Olympic Day)', isHoliday: false },
+
+  // July (7)
+  { month: 7, day: 11, title: 'روز جهانی جمعیت (World Population Day)', isHoliday: false },
+  { month: 7, day: 17, title: 'روز جهانی ایموجی (World Emoji Day)', isHoliday: false },
+  { month: 7, day: 20, title: 'روز جهانی شطرنج (International Chess Day)', isHoliday: false },
+  { month: 7, day: 30, title: 'روز بین‌المللی دوستی (International Day of Friendship)', isHoliday: false },
+
+  // August (8)
+  { month: 8, day: 8, title: 'روز جهانی گربه (International Cat Day)', isHoliday: false },
+  { month: 8, day: 12, title: 'روز بین‌المللی جوانان (International Youth Day)', isHoliday: false },
+  { month: 8, day: 13, title: 'روز جهانی چپ‌دست‌ها (International Lefthanders Day)', isHoliday: false },
+  { month: 8, day: 19, title: 'روز جهانی عکاسی (World Photography Day)', isHoliday: false },
+
+  // September (9)
+  { month: 9, day: 5, title: 'روز بین‌المللی خیریه (International Day of Charity)', isHoliday: false },
+  { month: 9, day: 8, title: 'روز جهانی سوادآموزی (International Literacy Day)', isHoliday: false },
+  { month: 9, day: 15, title: 'روز بین‌المللی دموکراسی (International Day of Democracy)', isHoliday: false },
+  { month: 9, day: 21, title: 'روز جهانی صلح (International Day of Peace)', isHoliday: false },
+  { month: 9, day: 27, title: 'روز جهانی گردشگری (World Tourism Day)', isHoliday: false },
+
+  // October (10)
+  { month: 10, day: 1, title: 'روز بین‌المللی سالمندان و روز جهانی قهوه', isHoliday: false },
+  { month: 10, day: 4, title: 'روز جهانی حیوانات (World Animal Day)', isHoliday: false },
+  { month: 10, day: 5, title: 'روز جهانی معلم (World Teachers\' Day)', isHoliday: false },
+  { month: 10, day: 10, title: 'روز جهانی سلامت روان (World Mental Health Day)', isHoliday: false },
+  { month: 10, day: 11, title: 'روز بین‌المللی دختر (International Day of the Girl Child)', isHoliday: false },
+  { month: 10, day: 16, title: 'روز جهانی غذا (World Food Day)', isHoliday: false },
+  { month: 10, day: 24, title: 'روز سازمان ملل متحد (United Nations Day)', isHoliday: false },
+  { month: 10, day: 31, title: 'جشن هالووین (Halloween)', isHoliday: false },
+
+  // November (11)
+  { month: 11, day: 10, title: 'روز جهانی علم در خدمت صلح و توسعه', isHoliday: false },
+  { month: 11, day: 14, title: 'روز جهانی دیابت (World Diabetes Day)', isHoliday: false },
+  { month: 11, day: 16, title: 'روز بین‌المللی مدارا و تساهل (Day for Tolerance)', isHoliday: false },
+  { month: 11, day: 19, title: 'روز بین‌المللی مردان (International Men\'s Day)', isHoliday: false },
+  { month: 11, day: 20, title: 'روز جهانی کودک در سازمان ملل (Universal Children\'s Day)', isHoliday: false },
+  { month: 11, day: 25, title: 'روز جهانی مبارزه با خشونت علیه زنان', isHoliday: false },
+
+  // December (12)
+  { month: 12, day: 1, title: 'روز جهانی ایدز (World AIDS Day)', isHoliday: false },
+  { month: 12, day: 3, title: 'روز جهانی معلولان (International Day of Persons with Disabilities)', isHoliday: false },
+  { month: 12, day: 5, title: 'روز جهانی داوطلبان و روز جهانی خاک', isHoliday: false },
+  { month: 12, day: 10, title: 'روز جهانی حقوق بشر (Human Rights Day)', isHoliday: false },
+  { month: 12, day: 11, title: 'روز بین‌المللی کوهستان (International Mountain Day)', isHoliday: false },
+  { month: 12, day: 25, title: 'جشن کریسمس / زادروز حضرت عیسی مسیح (Christmas)', isHoliday: false },
+  { month: 12, day: 31, title: 'شب سال نو میلادی (New Year\'s Eve)', isHoliday: false }
+];
+
 /**
  * Returns Hijri (Islamic lunar) date { hy, hm, hd } for a Gregorian Date
  * using standard Iranian-aligned civil Islamic calendar.
@@ -211,6 +313,15 @@ export function getIslamicEvents(gDate) {
   const hijri = getHijriDate(gDate);
   if (!hijri) return [];
   return ISLAMIC_EVENTS.filter((e) => e.month === hijri.hm && e.day === hijri.hd);
+}
+
+/**
+ * Returns International Gregorian events for a Gregorian Date
+ */
+export function getGregorianEvents(gDate) {
+  const gm = gDate.getMonth() + 1;
+  const gd = gDate.getDate();
+  return GREGORIAN_EVENTS.filter((e) => e.month === gm && e.day === gd);
 }
 
 /**
@@ -271,7 +382,7 @@ export function getJalaaliMonthLength(jy, jm) {
 }
 
 /**
- * Returns events for a specific Jalali day (including dynamic Islamic lunar occasions)
+ * Returns events for a specific Jalali day (including dynamic Islamic lunar & Gregorian international occasions)
  */
 export function getEventsForJalaliDay(jy, jm, jd, gDate = null) {
   const solarEvents = PERSIAN_FIXED_EVENTS.filter((e) => e.month === jm && e.day === jd);
@@ -281,9 +392,10 @@ export function getEventsForJalaliDay(jy, jm, jd, gDate = null) {
     targetDate = new Date(gObj.gy, gObj.gm - 1, gObj.gd);
   }
   const lunarEvents = getIslamicEvents(targetDate);
+  const gregorianEvents = getGregorianEvents(targetDate);
 
-  // Return combined unique events
-  return [...solarEvents, ...lunarEvents];
+  // Return combined events
+  return [...solarEvents, ...lunarEvents, ...gregorianEvents];
 }
 
 /**
