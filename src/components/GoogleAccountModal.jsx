@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Calendar, RefreshCw, CheckCircle, AlertCircle, Unlink, ExternalLink, HelpCircle } from 'lucide-react';
 import { getGoogleConfig, syncGoogleCalendar, disconnectGoogleAccount } from '../services/calendarService';
 
@@ -21,6 +22,17 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
       setSuccess('');
     }
   }, [isOpen]);
+
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -58,13 +70,20 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-      <div className="bg-slate-900/95 border border-white/20 rounded-2xl w-full max-w-lg p-6 shadow-2xl text-white relative">
+  const modalNode = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in"
+      dir="rtl"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-900 border border-white/20 rounded-3xl w-full max-w-lg p-6 sm:p-7 shadow-2xl text-white relative max-h-[90vh] overflow-y-auto scrollbar-thin"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400">
+            <div className="p-2.5 rounded-2xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400">
               <Calendar className="w-6 h-6" />
             </div>
             <div>
@@ -78,8 +97,8 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition"
-            title="بستن"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition"
+            title="بستن (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
@@ -87,7 +106,7 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
 
         {/* Status indicator if connected */}
         {config.connected && (
-          <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center justify-between text-xs">
+          <div className="mb-5 p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
               <div>
@@ -102,7 +121,7 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
             </div>
             <button
               onClick={handleDisconnect}
-              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition"
+              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition"
               title="قطع اتصال"
             >
               <Unlink className="w-3.5 h-3.5" />
@@ -113,13 +132,13 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
 
         {/* Success or Error messages */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
             <CheckCircle className="w-4 h-4 shrink-0" />
             <span>{success}</span>
           </div>
@@ -128,7 +147,7 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
         {/* Input Form */}
         <form onSubmit={handleSync} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
               نام یا ایمیل حساب گوگل (اختیاری):
             </label>
             <input
@@ -136,13 +155,13 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
               placeholder="مثال: myname@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-800/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition"
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition"
               dir="ltr"
             />
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-gray-300">
                 آدرس تقویم گوگل (Secret Address in iCal format): <span className="text-rose-400">*</span>
               </label>
@@ -161,14 +180,14 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
               value={icalUrl}
               onChange={(e) => setIcalUrl(e.target.value)}
               required
-              className="w-full bg-slate-800/80 border border-white/10 rounded-xl p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition font-mono break-all"
+              className="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition font-mono break-all"
               dir="ltr"
             />
           </div>
 
           {/* Help box */}
           {showHelp && (
-            <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200/90 space-y-1.5 leading-relaxed">
+            <div className="p-3.5 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200/90 space-y-1.5 leading-relaxed">
               <p className="font-bold text-cyan-300">نحوه دریافت آدرس تقویم اختصاصی گوگل:</p>
               <ol className="list-decimal list-inside space-y-1 text-[11px] text-gray-300">
                 <li>وارد سایت Google Calendar شوید.</li>
@@ -185,14 +204,14 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition"
+              className="px-4 py-2 text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition"
             >
               انصراف / بستن
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-900 bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 rounded-xl transition shadow-lg shadow-cyan-500/20"
+              className="flex items-center gap-2 px-5 py-2 text-xs font-bold text-slate-900 bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 rounded-xl transition shadow-lg shadow-cyan-500/20"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               {isLoading ? 'در حال همگام‌سازی...' : config.connected ? 'بروزرسانی رویدادها' : 'اتصال و دریافت رویدادها'}
@@ -202,4 +221,6 @@ export default function GoogleAccountModal({ isOpen, onClose, onUpdated }) {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }
