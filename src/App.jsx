@@ -156,11 +156,11 @@ export default function App() {
 
       {/* Center Content Wrapper: positioned cleanly between the left menu (BottomNav) and right menu (ApiMonitor) */}
       <div className="lg:ml-[225px] xl:mr-[345px] transition-all">
-        {/* Header */}
-        <Header />
+        {/* Header (hidden in tools page if desired, or compact) */}
+        {activePage !== 'tools' && <Header />}
 
         {/* Main Grid */}
-        <main className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 text-shadow">
+        <main className={`w-full grid grid-cols-1 lg:grid-cols-3 gap-6 text-shadow ${activePage === 'tools' ? 'pt-8' : ''}`}>
           {activePage === 'tools' ? (
             <div className="lg:col-span-3">
               <ToolsPage pages={pages} onRemovePage={handleRemovePage} />
