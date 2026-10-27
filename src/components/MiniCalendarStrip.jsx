@@ -135,7 +135,7 @@ export default function MiniCalendarStrip({ onExpand, onOpenGoogleModal }) {
       {/* Hover Floating Sticky Tooltip */}
       {hoveredDay && (
         <div
-          className="absolute z-50 top-full mt-2 w-72 sm:w-80 bg-slate-900/95 border border-white/20 rounded-xl p-3 shadow-2xl text-white backdrop-blur-md animate-fade-in pointer-events-none"
+          className="absolute z-[999] top-full mt-2 w-72 sm:w-80 bg-slate-900/98 border border-white/20 rounded-xl p-3 shadow-2xl text-white backdrop-blur-md animate-fade-in pointer-events-none"
           style={{ right: '50%', transform: 'translateX(50%)' }}
         >
           {/* Tooltip Header */}

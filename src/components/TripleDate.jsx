@@ -48,7 +48,7 @@ export default function TripleDate() {
   const miladiNum = new Intl.DateTimeFormat('en-CA').format(now);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-200 mt-1">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs  text-gray-200 mt-1">
       {/* Shamsi */}
       <div className="flex items-center gap-1.5">
         <span className="font-medium">{shamsiText}</span>

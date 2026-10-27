@@ -22,26 +22,31 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="glass p-5 rounded-2xl w-full mb-6 text-shadow border border-white/20 transition-all duration-300">
+    <header className="glass p-5 rounded-2xl w-full mb-6 text-shadow border border-white/20 transition-all duration-300 relative z-30">
       {isCalendarExpanded ? (
         <FullCalendarView onClose={() => setIsCalendarExpanded(false)} />
       ) : (
         <>
           <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
-            {/* Clock & Dates */}
-            <div className="text-center lg:text-right shrink-0">
-              <h1 className="text-4xl font-bold tracking-wider font-mono text-white mb-1" id="clock" dir="ltr">
-                {time}
-              </h1>
-              <TripleDate />
-            </div>
+            {/* Clock, Mini Calendar Strip & TripleDate */}
+            <div className="flex flex-col items-center lg:items-start shrink-0">
+              {/* Row with Clock on right (in RTL) and MiniCalendarStrip directly to its left */}
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <h1 className="text-4xl font-bold tracking-wider font-mono text-white mb-0 shrink-0" id="clock" dir="ltr">
+                  {time}
+                </h1>
 
-            {/* Mini Jalali Calendar Strip (Between Clock and Weather) */}
-            <div className="flex-1 flex justify-center max-w-full overflow-hidden px-2">
-              <MiniCalendarStrip
-                onExpand={() => setIsCalendarExpanded(true)}
-                onOpenGoogleModal={() => setIsGoogleModalOpen(true)}
-              />
+                {/* Calendar strip placed directly to the left of clock & above TripleDate */}
+                <div className="flex items-center">
+                  <MiniCalendarStrip
+                    onExpand={() => setIsCalendarExpanded(true)}
+                    onOpenGoogleModal={() => setIsGoogleModalOpen(true)}
+                  />
+                </div>
+              </div>
+
+              {/* TripleDate directly below Clock & Calendar */}
+              <TripleDate />
             </div>
 
             {/* Weather (7 days horizontal) */}
