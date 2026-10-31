@@ -479,6 +479,33 @@ def get_firewall_rules_batch(names):
     with ThreadPoolExecutor(max_workers=min(len(names), 10)) as executor:
         return list(executor.map(get_firewall_rule_detail, names))
 
+# ==================== AUTOFILL CENTRAL STORAGE ====================
+
+def get_autofill_file_path():
+    cur_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(cur_dir, 'autofill_data.json')
+
+def load_autofill_items():
+    fpath = get_autofill_file_path()
+    if not os.path.exists(fpath):
+        return []
+    try:
+        with open(fpath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def save_autofill_items(items):
+    fpath = get_autofill_file_path()
+    try:
+        with open(fpath, 'w', encoding='utf-8') as f:
+            json.dump(items, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
 def toggle_firewall_rule(rule_name, enable=True):
     global _firewall_cache
     _firewall_cache['time'] = 0  # Invalidate
@@ -616,6 +643,14 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
             detail = get_firewall_rule_detail(name)
             self._send_json(200, {'ok': True, 'rule': detail})
 
+        elif path in ['/api/autofill', '/autofill']:
+            items = load_autofill_items()
+            self._send_json(200, {
+                'ok': True,
+                'count': len(items),
+                'items': items
+            })
+
         else:
             self._send_json(404, {
                 'ok': False,
@@ -668,6 +703,14 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
             names = data.get('names', [])
             details = get_firewall_rules_batch(names)
             self._send_json(200, {'ok': True, 'rules': details})
+
+        elif path in ['/api/autofill/save', '/api/autofill']:
+            items = data.get('items', [])
+            if isinstance(items, list):
+                ok = save_autofill_items(items)
+                self._send_json(200, {'ok': ok, 'count': len(items)})
+            else:
+                self._send_json(400, {'ok': False, 'error': 'لیست آیتم‌ها معتبر نیست.'})
 
         else:
             self._send_json(404, {

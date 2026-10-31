@@ -14,6 +14,7 @@ import {
   Copy,
   RefreshCw
 } from 'lucide-react';
+import { fetchAutofillItems, saveAutofillItems } from '../services/windowsAgentService';
 
 function purgeLegacyItems(list) {
   if (!Array.isArray(list)) return [];
@@ -38,6 +39,7 @@ export default function AutofillManagerWidget() {
     }
   });
 
+  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -49,12 +51,40 @@ export default function AutofillManagerWidget() {
   const [formDomain, setFormDomain] = useState('');
   const [formFieldId, setFormFieldId] = useState('');
 
-  // Persist to localStorage
-  useEffect(() => {
-    localStorage.setItem('mqa_autofill_items', JSON.stringify(items));
-  }, [items]);
+  // Initial load from backend (agent port 23157)
+  async function loadFromBackend() {
+    setIsLoading(true);
+    try {
+      const backendItems = await fetchAutofillItems();
+      if (backendItems !== null && Array.isArray(backendItems)) {
+        const cleaned = purgeLegacyItems(backendItems);
+        if (cleaned.length > 0 || items.length === 0) {
+          setItems(cleaned);
+          localStorage.setItem('mqa_autofill_items', JSON.stringify(cleaned));
+        } else if (items.length > 0 && cleaned.length === 0) {
+          // If backend was empty but local has items, sync to backend
+          await saveAutofillItems(items);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to sync autofill with backend:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  function handleAddItem(e) {
+  useEffect(() => {
+    loadFromBackend();
+  }, []);
+
+  // Sync to both localStorage and central backend
+  async function updateItems(newItems) {
+    setItems(newItems);
+    localStorage.setItem('mqa_autofill_items', JSON.stringify(newItems));
+    await saveAutofillItems(newItems);
+  }
+
+  async function handleAddItem(e) {
     e.preventDefault();
     if (!formValue.trim()) return;
 
@@ -68,7 +98,8 @@ export default function AutofillManagerWidget() {
       createdAt: Date.now()
     };
 
-    setItems([newItem, ...items]);
+    const nextItems = [newItem, ...items];
+    await updateItems(nextItems);
     setIsAddModalOpen(false);
 
     // Reset Form
@@ -79,9 +110,10 @@ export default function AutofillManagerWidget() {
     setFormFieldId('');
   }
 
-  function handleDeleteItem(id) {
+  async function handleDeleteItem(id) {
     if (confirm('آیا از حذف این مورد از دیتابیس Autofill اطمینان دارید؟')) {
-      setItems(items.filter((item) => item.id !== id));
+      const nextItems = items.filter((item) => item.id !== id);
+      await updateItems(nextItems);
     }
   }
 
@@ -119,13 +151,24 @@ export default function AutofillManagerWidget() {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>افزودن مقدار</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadFromBackend}
+            disabled={isLoading}
+            className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition"
+            title="همگام‌سازی با افزونه و ایجنت"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
+          </button>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>افزودن مقدار</span>
+          </button>
+        </div>
       </div>
 
       {/* Search Input */}

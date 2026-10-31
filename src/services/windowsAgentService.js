@@ -246,3 +246,43 @@ export async function toggleFirewallRule(ruleName, action) {
   return await res.json();
 }
 
+/**
+ * Fetch all autofill items from central backend
+ */
+export async function fetchAutofillItems() {
+  const port = await findActiveAgentPort();
+  if (!port) return null;
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/autofill`, {
+      signal: AbortSignal.timeout(3000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.items || [];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save all autofill items to central backend
+ */
+export async function saveAutofillItems(items) {
+  const port = await findActiveAgentPort();
+  if (!port) return false;
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/autofill`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+      signal: AbortSignal.timeout(4000)
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+
