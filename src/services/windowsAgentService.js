@@ -57,6 +57,24 @@ export async function fetchSystemDrives() {
   };
 }
 
+export async function analyzeDriveFolder(pathStr) {
+  const port = await findActiveAgentPort();
+  if (!port) {
+    throw new Error('سرویس پایتون ویندوز در دسترس نیست.');
+  }
+
+  const target = encodeURIComponent(pathStr || 'C:\\');
+  const res = await fetch(`http://127.0.0.1:${port}/api/drives/analyze?path=${target}`, {
+    signal: AbortSignal.timeout(35000)
+  });
+
+  if (!res.ok) {
+    throw new Error(`خطا در تحلیل دیسک: HTTP ${res.status}`);
+  }
+
+  return await res.json();
+}
+
 export async function fetchSystemInfo() {
   const port = await findActiveAgentPort();
   if (!port) return null;
