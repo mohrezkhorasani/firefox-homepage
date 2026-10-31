@@ -15,11 +15,24 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+function purgeLegacyItems(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((it) => {
+    if (!it) return false;
+    const v = String(it.value || '').toLowerCase();
+    const l = String(it.label || '').toLowerCase();
+    if (v.includes('example.com') || v.includes('6037-9918') || l.includes('ایمیل کاری') || l.includes('ایمیل اصلی')) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export default function AutofillManagerWidget() {
   const [items, setItems] = useState(() => {
     try {
       const saved = localStorage.getItem('mqa_autofill_items');
-      return saved ? JSON.parse(saved) : [];
+      return saved ? purgeLegacyItems(JSON.parse(saved)) : [];
     } catch {
       return [];
     }
