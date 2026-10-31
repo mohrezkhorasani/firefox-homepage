@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Home, Wrench, Plus, X, Layers, Check } from 'lucide-react';
+import { Home, Wrench, Plus, X, Layers, Check, Server } from 'lucide-react';
 import IpWidget from './IpWidget';
 import ServerPingWidget from './ServerPingWidget';
 import ServerExtendPanel from './ServerExtendPanel';
@@ -151,8 +151,9 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
           {pages.map((p) => {
             const isActive = activePage === p.id;
             const isHome = p.id === 'home';
+            const isServices = p.id === 'services';
             const isTools = p.id === 'tools';
-            const Icon = isHome ? Home : isTools ? Wrench : Layers;
+            const Icon = isHome ? Home : isServices ? Server : isTools ? Wrench : Layers;
 
             return (
               <button

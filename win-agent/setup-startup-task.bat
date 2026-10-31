@@ -1,38 +1,22 @@
 @echo off
-title Install Windows Agent Startup Task
-setlocal EnableDelayedExpansion
-
-:: Current script directory
-set "AGENT_DIR=%~dp0"
-:: Strip trailing backslash if present
-if "%AGENT_DIR:~-1%"=="\" set "AGENT_DIR=%AGENT_DIR:~0,-1%"
-
-set "BAT_PATH=%AGENT_DIR%\start-agent.bat"
+title Install Mohrez Windows Tools Backend Agent Startup Task
+cd /d "%~dp0"
 
 echo ========================================================
-echo   Windows Tools Backend Agent - Setup Auto-Start Task
+echo   Mohrez - Windows Tools Agent Setup Auto-Start Task
 echo ========================================================
-echo Target script: "%BAT_PATH%"
 echo.
 
-if not exist "%BAT_PATH%" (
-    echo [ERROR] start-agent.bat not found in %AGENT_DIR%!
-    pause
-    exit /b 1
-)
-
-echo Registering scheduled task 'WindowsToolsBackendAgent'...
-schtasks /Create /TN "WindowsToolsBackendAgent" /TR "\"%BAT_PATH%\"" /SC ONLOGON /F /RL HIGHEST
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0register-task.ps1"
 
 if %ERRORLEVEL% EQU 0 (
     echo.
-    echo [SUCCESS] Task created successfully!
-    echo Starting agent now...
-    schtasks /Run /TN "WindowsToolsBackendAgent"
-    echo [OK] Done!
+    echo [SUCCESS] Task 'Mohrez - Windows Tools Agent' registered and running!
 ) else (
     echo.
-    echo [FAIL] Could not register scheduled task. Please run this .bat as Administrator.
+    echo [FAIL] Could not register task with PowerShell. Trying fallback schtasks...
+    schtasks /Create /TN "Mohrez - Windows Tools Agent" /TR "\"%~dp0start-agent.bat\"" /SC ONLOGON /F /RL HIGHEST
+    schtasks /Run /TN "Mohrez - Windows Tools Agent"
 )
 
 echo.
