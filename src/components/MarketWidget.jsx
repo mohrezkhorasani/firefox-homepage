@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -189,18 +190,6 @@ export default function MarketWidget() {
           <h2 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
             <span>بازار مالی</span>
           </h2>
-
-          {/* ایزی تریدر Link Button */}
-          <a
-            href="https://easytrader.emofid.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-100 border border-emerald-500/30 text-[11px] font-bold transition shadow-sm group"
-            title="ورود به سامانه معاملات ایزی تریدر مفید (EasyTrader)"
-          >
-            <span>ایزی تریدر</span>
-            <ExternalLink className="w-2.5 h-2.5 opacity-70 group-hover:opacity-100 transition-opacity" />
-          </a>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -221,11 +210,10 @@ export default function MarketWidget() {
 
           <button
             onClick={openAddModal}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold transition shadow-sm"
+            className="p-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 hover:text-white border border-emerald-500/30 transition shadow-sm flex items-center justify-center"
             title="افزودن نماد یا سهم جدید"
           >
-            <Plus className="w-3 h-3" />
-            <span className="hidden sm:inline">افزودن نماد</span>
+            <Plus className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -253,6 +241,19 @@ export default function MarketWidget() {
                   <div className="min-w-0">
                     <div className="text-xs font-bold text-gray-200 truncate flex items-center gap-1.5">
                       <span>{item.symbol}</span>
+                      {item.id === 'bourse' && (
+                        <a
+                          href="https://easytrader.emofid.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 hover:text-emerald-100 border border-emerald-500/30 text-[10px] font-bold transition shadow-sm group/btn"
+                          title="ورود به سامانه معاملات ایزی تریدر مفید (EasyTrader)"
+                        >
+                          <span>ایزی تریدر</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-70 group-hover/btn:opacity-100 transition-opacity" />
+                        </a>
+                      )}
                       <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-gray-400 font-medium">
                         {item.categoryLabel}
                       </span>
@@ -324,14 +325,14 @@ export default function MarketWidget() {
         })}
       </div>
 
-      {/* Search & Select Modal */}
-      {isModalOpen && (
+      {/* Search & Select Modal (Rendered via Portal to document.body to ensure it appears on top of all headers and widgets) */}
+      {typeof document !== 'undefined' && isModalOpen && createPortal(
         <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
           onClick={() => setIsModalOpen(false)}
         >
           <div 
-            className="bg-slate-900 border border-white/20 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl text-white flex flex-col max-h-[85vh]"
+            className="bg-slate-900 border border-white/20 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl text-white flex flex-col max-h-[85vh] relative z-10"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
@@ -476,7 +477,8 @@ export default function MarketWidget() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
