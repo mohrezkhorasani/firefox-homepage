@@ -5,9 +5,20 @@ $oldTaskName = "WindowsToolsBackendAgent"
 Unregister-ScheduledTask -TaskName $oldTaskName -Confirm:$false -ErrorAction SilentlyContinue
 
 $agentDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$batPath = Join-Path $agentDir "start-agent.bat"
+$pythonw = (Get-Command pythonw -ErrorAction SilentlyContinue).Source
+if (-not $pythonw) {
+    $pythonw = "$env:LOCALAPPDATA\Programs\Python\Python311\pythonw.exe"
+}
+$scriptPath = Join-Path $agentDir "agent.py"
 
-$action = New-ScheduledTaskAction -Execute $batPath -WorkingDirectory $agentDir
+if (Test-Path $pythonw) {
+    # Run pythonw directly for completely invisible background execution
+    $action = New-ScheduledTaskAction -Execute $pythonw -Argument "`"$scriptPath`"" -WorkingDirectory $agentDir
+} else {
+    $batPath = Join-Path $agentDir "start-agent.bat"
+    $action = New-ScheduledTaskAction -Execute $batPath -WorkingDirectory $agentDir
+}
+
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `

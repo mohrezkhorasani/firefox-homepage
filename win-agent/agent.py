@@ -7,6 +7,7 @@ import sys
 import platform
 import socket
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 import csv
 import io
 import re
@@ -21,6 +22,27 @@ MAX_PORT_ATTEMPTS = 50
 _services_cache = {'data': None, 'time': 0}
 _tasks_cache = {'data': None, 'time': 0}
 CACHE_TTL = 30  # seconds
+
+def run_cmd(args, timeout=10, text=True, errors='ignore', capture_output=True, encoding=None):
+    """
+    Executes a system command completely silently in the background.
+    Guarantees no cmd.exe or conhost.exe window appears or blinks on screen.
+    """
+    kwargs = {
+        'capture_output': capture_output,
+        'text': text,
+        'errors': errors,
+        'timeout': timeout
+    }
+    if encoding:
+        kwargs['encoding'] = encoding
+    if sys.platform == 'win32':
+        kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        kwargs['startupinfo'] = startupinfo
+    return subprocess.run(args, **kwargs)
 
 def get_drives_info():
     drives = []
@@ -79,12 +101,12 @@ def get_services_list(force_refresh=False):
 
     cmd = 'Get-Service | Select-Object Name, DisplayName, Status, StartType | ConvertTo-Json -Compress'
     try:
-        res = subprocess.run(
+        res = run_cmd(
             ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', cmd],
-            capture_output=True, text=True, encoding='utf-8', timeout=10
+            timeout=10, encoding='utf-8'
         )
         data = json.loads(res.stdout) if res.stdout.strip() else []
-    except Exception as e:
+    except Exception:
         return _services_cache['data'] or []
 
     status_map = {
@@ -119,7 +141,7 @@ def get_services_list(force_refresh=False):
 
 def get_service_status_fast(name):
     try:
-        res = subprocess.run(['sc.exe', 'query', name], capture_output=True, text=True, errors='ignore', timeout=3)
+        res = run_cmd(['sc.exe', 'query', name], timeout=3)
         if res.returncode != 0:
             return {'name': name, 'status': 'Stopped', 'exists': False}
         state_match = re.search(r'STATE\s*:\s*\d+\s+([A-Z_]+)', res.stdout)
@@ -129,24 +151,30 @@ def get_service_status_fast(name):
     except Exception:
         return {'name': name, 'status': 'Unknown', 'exists': False}
 
+def get_services_status_batch(names):
+    if not names:
+        return []
+    with ThreadPoolExecutor(max_workers=min(len(names), 10)) as executor:
+        return list(executor.map(get_service_status_fast, names))
+
 def control_service(name, action):
     global _services_cache
     _services_cache['time'] = 0  # invalidate cache
     try:
         if action == 'start':
-            res = subprocess.run(
+            res = run_cmd(
                 ['powershell', '-NoProfile', '-Command', f"Start-Service -Name '{name}'"],
-                capture_output=True, text=True, errors='ignore', timeout=8
+                timeout=8
             )
         elif action == 'stop':
-            res = subprocess.run(
+            res = run_cmd(
                 ['powershell', '-NoProfile', '-Command', f"Stop-Service -Name '{name}' -Force"],
-                capture_output=True, text=True, errors='ignore', timeout=8
+                timeout=8
             )
         elif action == 'restart':
-            res = subprocess.run(
+            res = run_cmd(
                 ['powershell', '-NoProfile', '-Command', f"Restart-Service -Name '{name}' -Force"],
-                capture_output=True, text=True, errors='ignore', timeout=10
+                timeout=10
             )
         else:
             return {'ok': False, 'error': f"عملیات '{action}' معتبر نیست."}
@@ -169,7 +197,7 @@ def get_tasks_list(force_refresh=False):
         return _tasks_cache['data']
 
     try:
-        res = subprocess.run(['schtasks', '/query', '/fo', 'csv'], capture_output=True, text=True, errors='ignore', timeout=8)
+        res = run_cmd(['schtasks', '/query', '/fo', 'csv'], timeout=8)
         if res.returncode != 0:
             return _tasks_cache['data'] or []
 
@@ -200,11 +228,11 @@ def get_tasks_list(force_refresh=False):
 
 def get_task_detail(task_name):
     try:
-        res = subprocess.run(['schtasks', '/query', '/tn', task_name, '/fo', 'csv', '/v'], capture_output=True, text=True, errors='ignore', timeout=4)
+        res = run_cmd(['schtasks', '/query', '/tn', task_name, '/fo', 'csv', '/v'], timeout=4)
         if res.returncode != 0:
             # Try with leading backslash
             if not task_name.startswith('\\'):
-                res = subprocess.run(['schtasks', '/query', '/tn', f"\\{task_name}", '/fo', 'csv', '/v'], capture_output=True, text=True, errors='ignore', timeout=4)
+                res = run_cmd(['schtasks', '/query', '/tn', f"\\{task_name}", '/fo', 'csv', '/v'], timeout=4)
 
         if res.returncode != 0:
             return {'name': task_name, 'status': 'NotFound', 'exists': False}
@@ -229,18 +257,24 @@ def get_task_detail(task_name):
     except Exception:
         return {'name': task_name, 'status': 'Unknown', 'exists': False}
 
+def get_tasks_details_batch(names):
+    if not names:
+        return []
+    with ThreadPoolExecutor(max_workers=min(len(names), 10)) as executor:
+        return list(executor.map(get_task_detail, names))
+
 def control_task(task_name, action):
     global _tasks_cache
     _tasks_cache['time'] = 0  # invalidate cache
     try:
         if action == 'run':
-            res = subprocess.run(['schtasks', '/run', '/tn', task_name], capture_output=True, text=True, errors='ignore', timeout=5)
+            res = run_cmd(['schtasks', '/run', '/tn', task_name], timeout=5)
         elif action == 'end':
-            res = subprocess.run(['schtasks', '/end', '/tn', task_name], capture_output=True, text=True, errors='ignore', timeout=5)
+            res = run_cmd(['schtasks', '/end', '/tn', task_name], timeout=5)
         elif action == 'enable':
-            res = subprocess.run(['schtasks', '/change', '/tn', task_name, '/enable'], capture_output=True, text=True, errors='ignore', timeout=5)
+            res = run_cmd(['schtasks', '/change', '/tn', task_name, '/enable'], timeout=5)
         elif action == 'disable':
-            res = subprocess.run(['schtasks', '/change', '/tn', task_name, '/disable'], capture_output=True, text=True, errors='ignore', timeout=5)
+            res = run_cmd(['schtasks', '/change', '/tn', task_name, '/disable'], timeout=5)
         else:
             return {'ok': False, 'error': f"عملیات '{action}' روی تسک نامعتبر است."}
 
@@ -333,7 +367,7 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
         elif path in ['/api/services/status']:
             names_param = query.get('names', [''])[0]
             names = [n.strip() for n in names_param.split(',') if n.strip()]
-            details = [get_service_status_fast(n) for n in names]
+            details = get_services_status_batch(names)
             self._send_json(200, {'ok': True, 'services': details})
 
         elif path in ['/api/tasks', '/tasks']:
@@ -372,7 +406,7 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
 
         elif path in ['/api/services/details']:
             names = data.get('names', [])
-            details = [get_service_status_fast(n) for n in names]
+            details = get_services_status_batch(names)
             self._send_json(200, {'ok': True, 'services': details})
 
         elif path in ['/api/tasks/action']:
@@ -386,7 +420,7 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
 
         elif path in ['/api/tasks/details']:
             names = data.get('names', [])
-            details = [get_task_detail(n) for n in names]
+            details = get_tasks_details_batch(names)
             self._send_json(200, {'ok': True, 'tasks': details})
 
         else:

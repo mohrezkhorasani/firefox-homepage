@@ -73,11 +73,9 @@ export default function PinnedTasksWidget() {
     }
   }
 
-  // Initial load and periodic poll
+  // Initial load on mount or when pinned list changes (no auto-poll, user clicks refresh button)
   useEffect(() => {
     refreshPinnedDetails();
-    const interval = setInterval(refreshPinnedDetails, 15000);
-    return () => clearInterval(interval);
   }, [pinnedNames]);
 
   // Load all tasks when modal opens

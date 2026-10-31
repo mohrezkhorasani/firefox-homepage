@@ -67,11 +67,9 @@ export default function PinnedServicesWidget() {
     }
   }
 
-  // Initial load and periodic poll
+  // Initial load on mount or when pinned list changes (no auto-poll, user clicks refresh button)
   useEffect(() => {
     refreshPinnedDetails();
-    const interval = setInterval(refreshPinnedDetails, 10000);
-    return () => clearInterval(interval);
   }, [pinnedNames]);
 
   // Load all services when modal opens
