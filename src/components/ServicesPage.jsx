@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Server, Clock, Activity, Cpu, ShieldCheck, RefreshCw } from 'lucide-react';
 import PinnedServicesWidget from './PinnedServicesWidget';
 import PinnedTasksWidget from './PinnedTasksWidget';
+import PinnedFirewallWidget from './PinnedFirewallWidget';
 import { fetchSystemInfo, findActiveAgentPort } from '../services/windowsAgentService';
 
 export default function ServicesPage() {
@@ -28,10 +29,10 @@ export default function ServicesPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              مدیریت سرویس‌ها و تسک‌های ویندوز
+              مدیریت سرویس‌ها، تسک‌ها و فایروال ویندوز
             </h2>
             <p className="text-xs text-slate-300">
-              پایش لحظه‌ای وضعیت، اجرا، توقف و مدیریت وظایف زمان‌بندی‌شده Task Scheduler و سرویس‌های ویندوز
+              پایش لحظه‌ای وضعیت، اجرا و توقف سرویس‌ها، مدیریت وظایف Task Scheduler و مدیریت پورت‌های باز فایروال
             </p>
           </div>
         </div>
@@ -62,6 +63,11 @@ export default function ServicesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PinnedServicesWidget />
         <PinnedTasksWidget />
+      </div>
+
+      {/* Windows Firewall & Open Ports Section */}
+      <div className="w-full">
+        <PinnedFirewallWidget />
       </div>
     </div>
   );

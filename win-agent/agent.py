@@ -21,6 +21,8 @@ MAX_PORT_ATTEMPTS = 50
 # Cache for services and tasks to make API calls fast
 _services_cache = {'data': None, 'time': 0}
 _tasks_cache = {'data': None, 'time': 0}
+_firewall_cache = {'data': None, 'time': 0}
+_listening_ports_cache = {'data': None, 'time': 0}
 CACHE_TTL = 30  # seconds
 
 def run_cmd(args, timeout=10, text=True, errors='ignore', capture_output=True, encoding=None):
@@ -289,6 +291,213 @@ def control_task(task_name, action):
     except Exception as e:
         return {'ok': False, 'error': str(e)}
 
+# ==================== LISTENING PORTS & SERVICES ====================
+
+def get_listening_ports(force_refresh=False):
+    global _listening_ports_cache
+    now = time.time()
+    if not force_refresh and _listening_ports_cache['data'] and (now - _listening_ports_cache['time'] < 10):
+        return _listening_ports_cache['data']
+
+    # 1. Map PID to Process Name and Service Name
+    proc_res = run_cmd(['tasklist', '/svc', '/fo', 'csv'], timeout=6)
+    proc_map = {}
+    svc_map = {}
+    if proc_res.returncode == 0:
+        for row in csv.reader(io.StringIO(proc_res.stdout)):
+            if len(row) >= 3:
+                try:
+                    pid = int(row[1])
+                    pname = row[0]
+                    services = row[2]
+                    proc_map[pid] = pname
+                    if services and services != 'N/A':
+                        svc_map[pid] = services
+                except Exception:
+                    pass
+
+    # 2. Get active TCP listening sockets
+    net_res = run_cmd(['netstat', '-ano', '-p', 'tcp'], timeout=6)
+    ports = []
+    seen = set()
+
+    common_port_names = {
+        80: 'HTTP Web Server',
+        443: 'HTTPS Web Server',
+        135: 'RPC Endpoint Mapper',
+        445: 'SMB File Sharing',
+        3389: 'Remote Desktop (RDP)',
+        23157: 'Mohrez Windows Agent',
+        53: 'DNS Service',
+        21: 'FTP Server',
+        22: 'SSH Server',
+        3306: 'MySQL Database',
+        5432: 'PostgreSQL Database',
+        1433: 'MS SQL Server',
+        6379: 'Redis Cache',
+        27017: 'MongoDB Database',
+        8080: 'HTTP Alternate Proxy',
+        8443: 'HTTPS Alternate',
+        9000: 'PHP-FPM / SonarQube',
+        1080: 'SOCKS5 Proxy',
+        10808: 'V2Ray / Xray Proxy',
+        10809: 'V2Ray HTTP Proxy',
+        5353: 'mDNS Multicast',
+        5040: 'Connected Devices Platform'
+    }
+
+    if net_res.returncode == 0:
+        for line in net_res.stdout.splitlines():
+            if 'LISTENING' in line:
+                parts = line.split()
+                if len(parts) >= 5:
+                    local_addr = parts[1]
+                    try:
+                        pid = int(parts[4])
+                        port_str = local_addr.rsplit(':', 1)[-1]
+                        port_num = int(port_str)
+                        ip_addr = local_addr.rsplit(':', 1)[0].strip('[]')
+
+                        key = (port_num, pid)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+
+                        proc_name = proc_map.get(pid, 'System' if pid == 4 else f'PID:{pid}')
+                        svc_name = svc_map.get(pid, common_port_names.get(port_num, ''))
+
+                        ports.append({
+                            'port': port_num,
+                            'address': local_addr,
+                            'ip': ip_addr,
+                            'pid': pid,
+                            'process': proc_name,
+                            'service': svc_name,
+                            'common_desc': common_port_names.get(port_num, '')
+                        })
+                    except Exception:
+                        pass
+
+    # Sort ports: Agent first, then by port number
+    ports.sort(key=lambda x: (0 if x['port'] == DEFAULT_PORT else 1, x['port']))
+    _listening_ports_cache = {'data': ports, 'time': now}
+    return ports
+
+# ==================== WINDOWS FIREWALL RULES ====================
+
+def get_firewall_rules(force_refresh=False):
+    global _firewall_cache
+    now = time.time()
+    if not force_refresh and _firewall_cache['data'] and (now - _firewall_cache['time'] < 25):
+        return _firewall_cache['data']
+
+    res = run_cmd(['netsh', 'advfirewall', 'firewall', 'show', 'rule', 'name=all'], timeout=12)
+    rules = []
+    if res.returncode == 0:
+        text = res.stdout
+        blocks = re.split(r'\n(?=Rule Name:\s+)', text)
+        for b in blocks:
+            if not b.strip():
+                continue
+            name_m = re.search(r'Rule Name:\s+(.+)', b)
+            if not name_m:
+                continue
+            name = name_m.group(1).strip()
+            enabled_m = re.search(r'Enabled:\s+(.+)', b)
+            direction_m = re.search(r'Direction:\s+(.+)', b)
+            action_m = re.search(r'Action:\s+(.+)', b)
+            proto_m = re.search(r'Protocol:\s+(.+)', b)
+            port_m = re.search(r'LocalPort:\s+(.+)', b)
+            prog_m = re.search(r'Program:\s+(.+)', b)
+            profile_m = re.search(r'Profiles:\s+(.+)', b)
+
+            enabled = enabled_m.group(1).strip() if enabled_m else 'No'
+            action = action_m.group(1).strip() if action_m else 'Allow'
+            direction = direction_m.group(1).strip() if direction_m else 'In'
+            protocol = proto_m.group(1).strip() if proto_m else 'Any'
+            local_port = port_m.group(1).strip() if port_m else 'Any'
+            program = prog_m.group(1).strip() if prog_m else 'Any'
+            profiles = profile_m.group(1).strip() if profile_m else 'All'
+
+            rules.append({
+                'name': name,
+                'enabled': enabled == 'Yes',
+                'direction': direction,
+                'action': action,
+                'protocol': protocol,
+                'port': local_port,
+                'program': program,
+                'profiles': profiles,
+                'is_open_port': (enabled == 'Yes' and action == 'Allow' and direction == 'In' and local_port != 'Any')
+            })
+
+    # Sort: open inbound ports first, then alphabetically
+    rules.sort(key=lambda x: (0 if x['is_open_port'] else (1 if x['enabled'] else 2), x['name'].lower()))
+    _firewall_cache = {'data': rules, 'time': now}
+    return rules
+
+def get_firewall_rule_detail(rule_name):
+    try:
+        res = run_cmd(['netsh', 'advfirewall', 'firewall', 'show', 'rule', f'name={rule_name}'], timeout=4)
+        if res.returncode != 0:
+            return {'name': rule_name, 'exists': False}
+        b = res.stdout
+        enabled_m = re.search(r'Enabled:\s+(.+)', b)
+        direction_m = re.search(r'Direction:\s+(.+)', b)
+        action_m = re.search(r'Action:\s+(.+)', b)
+        proto_m = re.search(r'Protocol:\s+(.+)', b)
+        port_m = re.search(r'LocalPort:\s+(.+)', b)
+        prog_m = re.search(r'Program:\s+(.+)', b)
+        profile_m = re.search(r'Profiles:\s+(.+)', b)
+
+        enabled = enabled_m.group(1).strip() if enabled_m else 'No'
+        action = action_m.group(1).strip() if action_m else 'Allow'
+        direction = direction_m.group(1).strip() if direction_m else 'In'
+        protocol = proto_m.group(1).strip() if proto_m else 'Any'
+        local_port = port_m.group(1).strip() if port_m else 'Any'
+        program = prog_m.group(1).strip() if prog_m else 'Any'
+        profiles = profile_m.group(1).strip() if profile_m else 'All'
+
+        return {
+            'name': rule_name,
+            'enabled': enabled == 'Yes',
+            'direction': direction,
+            'action': action,
+            'protocol': protocol,
+            'port': local_port,
+            'program': program,
+            'profiles': profiles,
+            'is_open_port': (enabled == 'Yes' and action == 'Allow' and direction == 'In' and local_port != 'Any'),
+            'exists': True
+        }
+    except Exception:
+        return {'name': rule_name, 'exists': False}
+
+def get_firewall_rules_batch(names):
+    if not names:
+        return []
+    with ThreadPoolExecutor(max_workers=min(len(names), 10)) as executor:
+        return list(executor.map(get_firewall_rule_detail, names))
+
+def toggle_firewall_rule(rule_name, enable=True):
+    global _firewall_cache
+    _firewall_cache['time'] = 0  # Invalidate
+    status_str = 'yes' if enable else 'no'
+    try:
+        res = run_cmd(['netsh', 'advfirewall', 'firewall', 'set', 'rule', f'name={rule_name}', 'new', f'enable={status_str}'], timeout=6)
+        detail = get_firewall_rule_detail(rule_name)
+        return {
+            'ok': res.returncode == 0,
+            'rule': rule_name,
+            'enabled': detail.get('enabled', enable),
+            'detail': detail,
+            'output': res.stdout.strip() or res.stderr.strip()
+        }
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}
+
+# ==================== HTTP SERVER HANDLER ====================
+
 class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -384,6 +593,29 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
             detail = get_task_detail(name)
             self._send_json(200, {'ok': True, 'task': detail})
 
+        elif path in ['/api/ports', '/ports']:
+            force = 'refresh' in query
+            ports = get_listening_ports(force_refresh=force)
+            self._send_json(200, {
+                'ok': True,
+                'count': len(ports),
+                'ports': ports
+            })
+
+        elif path in ['/api/firewall', '/firewall', '/api/firewall/rules']:
+            force = 'refresh' in query
+            rules = get_firewall_rules(force_refresh=force)
+            self._send_json(200, {
+                'ok': True,
+                'count': len(rules),
+                'rules': rules
+            })
+
+        elif path in ['/api/firewall/detail']:
+            name = query.get('name', [''])[0]
+            detail = get_firewall_rule_detail(name)
+            self._send_json(200, {'ok': True, 'rule': detail})
+
         else:
             self._send_json(404, {
                 'ok': False,
@@ -422,6 +654,20 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
             names = data.get('names', [])
             details = get_tasks_details_batch(names)
             self._send_json(200, {'ok': True, 'tasks': details})
+
+        elif path in ['/api/firewall/action']:
+            rule_name = data.get('rule')
+            action = data.get('action')  # 'enable' or 'disable'
+            if not rule_name or action not in ['enable', 'disable']:
+                self._send_json(400, {'ok': False, 'error': 'نام رول فایروال و اکشن معتبر (enable یا disable) الزامی است.'})
+                return
+            result = toggle_firewall_rule(rule_name, enable=(action == 'enable'))
+            self._send_json(200, result)
+
+        elif path in ['/api/firewall/details']:
+            names = data.get('names', [])
+            details = get_firewall_rules_batch(names)
+            self._send_json(200, {'ok': True, 'rules': details})
 
         else:
             self._send_json(404, {

@@ -178,3 +178,71 @@ export async function controlTask(taskName, action) {
   if (!res.ok) throw new Error(`خطا در اجرای عملیات تسک (HTTP ${res.status})`);
   return await res.json();
 }
+
+/**
+ * Fetch all active listening TCP ports with process & service names
+ */
+export async function fetchListeningPorts(forceRefresh = false) {
+  const port = await findActiveAgentPort();
+  if (!port) return { ports: [] };
+
+  const url = `http://127.0.0.1:${port}/api/ports${forceRefresh ? '?refresh=1' : ''}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error(`خطا در دریافت لیست پورت‌ها (HTTP ${res.status})`);
+  return await res.json();
+}
+
+/**
+ * Fetch all Windows Firewall rules (inbound, outbound, open ports)
+ */
+export async function fetchFirewallRules(forceRefresh = false) {
+  const port = await findActiveAgentPort();
+  if (!port) return { rules: [] };
+
+  const url = `http://127.0.0.1:${port}/api/firewall${forceRefresh ? '?refresh=1' : ''}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(`خطا در دریافت رول‌های فایروال (HTTP ${res.status})`);
+  return await res.json();
+}
+
+/**
+ * Fetch detailed info for specific pinned firewall rules
+ */
+export async function fetchFirewallRulesDetails(names) {
+  if (!names || names.length === 0) return [];
+  const port = await findActiveAgentPort();
+  if (!port) return [];
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/firewall/details`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names }),
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.rules || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Toggle (enable/disable) a Windows Firewall rule
+ */
+export async function toggleFirewallRule(ruleName, action) {
+  const port = await findActiveAgentPort();
+  if (!port) throw new Error('سرویس پایتون در دسترس نیست.');
+
+  const res = await fetch(`http://127.0.0.1:${port}/api/firewall/action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rule: ruleName, action }), // 'enable' or 'disable'
+    signal: AbortSignal.timeout(8000)
+  });
+
+  if (!res.ok) throw new Error(`خطا در تغییر وضعیت رول فایروال (HTTP ${res.status})`);
+  return await res.json();
+}
+

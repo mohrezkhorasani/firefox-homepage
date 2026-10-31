@@ -10,6 +10,7 @@ import TodoWidget from './components/TodoWidget';
 import MarketWidget from './components/MarketWidget';
 import ApiMonitorWidget from './components/ApiMonitorWidget';
 import NetworkSpeedWidget from './components/NetworkSpeedWidget';
+import ActivePortsBottomWidget from './components/ActivePortsBottomWidget';
 import { DEFAULT_BOOKMARKS } from './data/defaultBookmarks';
 import { DEFAULT_TAGS } from './data/defaultTags';
 
@@ -209,8 +210,10 @@ export default function App() {
         </main>
       </div>
 
-      {/* Bottom Right: Tag Filters */}
-      {activePage !== 'tools' && activePage !== 'services' && (
+      {/* Bottom Right: Tag Filters (on home/other pages) or Active Ports (on services page) */}
+      {activePage === 'services' ? (
+        <ActivePortsBottomWidget />
+      ) : activePage !== 'tools' && (
         <TagFilter
           tags={tags}
           activeTag={activeTag}
