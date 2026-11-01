@@ -28,17 +28,6 @@ const LUCIDE_ICONS = {
   Bookmark: BookmarkIcon
 };
 
-export function isExtensionBookmark(bm) {
-  if (!bm) return false;
-  if (bm.isExtension === true) return true;
-  if (Array.isArray(bm.tags) && (bm.tags.includes('extension') || bm.tags.includes('addon'))) return true;
-  const url = (bm.url || '').toLowerCase();
-  if (url.startsWith('about:debugging') || url.startsWith('about:addons') || url.startsWith('moz-extension://') || url.startsWith('chrome://extensions')) {
-    return true;
-  }
-  return false;
-}
-
 export default function BookmarkGrid({ 
   bookmarks, 
   activeTag, 
@@ -46,8 +35,7 @@ export default function BookmarkGrid({
   onAddNew,
   onDeleteBookmark,
   onUpdateBookmarkColor,
-  onUpdateBookmarkLogo,
-  onToggleExtension
+  onUpdateBookmarkLogo
 }) {
   const [editingLogoBm, setEditingLogoBm] = useState(null);
   const [logoUrlInput, setLogoUrlInput] = useState('');
@@ -121,20 +109,12 @@ export default function BookmarkGrid({
           const defaultIcon = bm.url?.startsWith('about:') ? Wrench : (bm.isServer ? Server : Globe);
           const LucideComp = LUCIDE_ICONS[bm.iconValue] || LUCIDE_ICONS[bm.fallbackIcon] || defaultIcon || BookmarkIcon;
           const customBg = bm.customBgColor || null;
-          const isExt = isExtensionBookmark(bm);
-          const isEnabled = bm.isEnabled !== false;
 
           return (
             <div
               key={bm.id}
               style={customBg ? { backgroundColor: customBg } : {}}
-              className={`glass flex items-center p-3 rounded-xl gap-2.5 group relative cursor-pointer border transition-all text-shadow ${
-                isExt && !isEnabled
-                  ? 'border-rose-500/30 opacity-60 grayscale-[35%] hover:opacity-95'
-                  : isExt
-                  ? 'border-cyan-500/30 hover:border-cyan-400/60 shadow-cyan-950/20'
-                  : 'border-white/10 hover:border-white/30'
-              }`}
+              className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-white/10 hover:border-white/30 transition text-shadow"
               onClick={() => handleOpenBookmark(bm)}
               title={bm.title}
             >
@@ -165,39 +145,10 @@ export default function BookmarkGrid({
                 <LucideComp className="w-5 h-5 text-cyan-300 hidden" />
               </div>
 
-              {/* Title */}
+              {/* Title: Full width, displays complete title without truncation */}
               <span className="font-bold text-xs sm:text-sm text-white flex-1 leading-snug break-words">
                 {bm.title}
               </span>
-
-              {/* Toggle Switch for Extensions */}
-              {isExt && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onToggleExtension) {
-                      onToggleExtension(bm.id);
-                    }
-                    const next = !isEnabled;
-                    showToast(`افزونه «${bm.title}» ${next ? 'فعال (روشن)' : 'غیرفعال (خاموش)'} شد`);
-                  }}
-                  title={isEnabled ? 'وضعیت: روشن (کلیک جهت خاموش کردن)' : 'وضعیت: خاموش (کلیک جهت روشن کردن)'}
-                  className={`shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all shadow-md select-none ${
-                    isEnabled
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-500/30 hover:border-emerald-400'
-                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 hover:border-rose-400'
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-                  <span>{isEnabled ? 'روشن' : 'خاموش'}</span>
-                  <div className={`w-6 h-3 rounded-full flex items-center px-0.5 transition-colors ${
-                    isEnabled ? 'bg-emerald-500 justify-end' : 'bg-slate-700 justify-start'
-                  }`}>
-                    <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
-                  </div>
-                </button>
-              )}
 
               {/* Hover Actions: Overlaid on the left side so title stretches to full width */}
               <div 

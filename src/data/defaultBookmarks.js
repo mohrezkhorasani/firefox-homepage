@@ -192,34 +192,6 @@ export const DEFAULT_BOOKMARKS = [
     page: 'home'
   },
   {
-    id: 'tab-ip-badge',
-    title: 'Dual IP Inspector',
-    desc: 'نمایش ۲ آی‌پی در تب‌ها (سایت و شما)',
-    url: 'about:debugging#/setup',
-    tags: ['tools', 'extension'],
-    customBgColor: 'rgba(6, 182, 212, 0.45)', // Cyan
-    iconType: 'lucide',
-    iconValue: 'Wifi',
-    fallbackIcon: 'Wifi',
-    page: 'home',
-    isExtension: true,
-    isEnabled: true
-  },
-  {
-    id: 'quick-autofill',
-    title: 'Quick Autofill',
-    desc: 'تکمیل خودکار فیلدهای متنی',
-    url: 'about:debugging#/setup',
-    tags: ['tools', 'extension'],
-    customBgColor: 'rgba(168, 85, 247, 0.45)', // Purple
-    iconType: 'lucide',
-    iconValue: 'Zap',
-    fallbackIcon: 'Zap',
-    page: 'home',
-    isExtension: true,
-    isEnabled: true
-  },
-  {
     id: 'noornet',
     title: 'NoorNet',
     desc: 'پرتال اینترنت و میزبانی نورنت',

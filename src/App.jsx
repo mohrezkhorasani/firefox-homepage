@@ -50,15 +50,8 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Merge any missing extension defaults if needed
-          const existingIds = new Set(parsed.map((b) => b.id));
-          const missingExtensions = DEFAULT_BOOKMARKS.filter(
-            (d) => !existingIds.has(d.id) && d.isExtension
-          );
-          if (missingExtensions.length > 0) {
-            return [...parsed, ...missingExtensions];
-          }
-          return parsed;
+          // Extensions are managed exclusively on the Services page!
+          return parsed.filter(b => !b.isExtension && b.id !== 'tab-ip-badge' && b.id !== 'quick-autofill');
         }
       } catch {}
     }
@@ -69,10 +62,10 @@ export default function App() {
         return parsed.map(b => {
           const def = DEFAULT_BOOKMARKS.find(d => d.id === b.id);
           return def ? { ...b, customBgColor: b.customBgColor || def.customBgColor } : b;
-        });
+        }).filter(b => !b.isExtension && b.id !== 'tab-ip-badge' && b.id !== 'quick-autofill');
       } catch {}
     }
-    return DEFAULT_BOOKMARKS;
+    return DEFAULT_BOOKMARKS.filter(b => !b.isExtension && b.id !== 'tab-ip-badge' && b.id !== 'quick-autofill');
   });
 
   const [tags, setTags] = useState(() => {
@@ -136,39 +129,6 @@ export default function App() {
           return { ...b, iconType: 'lucide', iconValue: 'Bookmark' };
         }
         return { ...b, iconType: 'image', iconValue: logoUrl };
-      })
-    );
-  }
-
-  function handleToggleExtension(id) {
-    setBookmarks((prev) =>
-      prev.map((b) => {
-        if (b.id !== id) return b;
-        const nextState = b.isEnabled === false ? true : false;
-        const updated = { ...b, isEnabled: nextState };
-
-        // 1. Dispatch custom event for extensions in browser
-        window.dispatchEvent(
-          new CustomEvent('MOHREZ_EXTENSION_STATE_CHANGED', {
-            detail: {
-              id: b.id,
-              title: b.title,
-              url: b.url,
-              isEnabled: nextState
-            }
-          })
-        );
-
-        // 2. Persist in localStorage dictionary
-        try {
-          const stored = JSON.parse(localStorage.getItem('homepage_extension_states') || '{}');
-          stored[b.id] = nextState;
-          if (b.title) stored[b.title.toLowerCase()] = nextState;
-          if (b.url) stored[b.url] = nextState;
-          localStorage.setItem('homepage_extension_states', JSON.stringify(stored));
-        } catch (e) {}
-
-        return updated;
       })
     );
   }
@@ -245,7 +205,6 @@ export default function App() {
                   onDeleteBookmark={handleDeleteBookmark}
                   onUpdateBookmarkColor={handleUpdateBookmarkColor}
                   onUpdateBookmarkLogo={handleUpdateBookmarkLogo}
-                  onToggleExtension={handleToggleExtension}
                 />
               </div>
 

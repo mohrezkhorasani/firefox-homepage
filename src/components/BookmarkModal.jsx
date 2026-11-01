@@ -210,48 +210,6 @@ export default function BookmarkModal({
             </div>
           </div>
 
-          {/* Extension Toggle Setting */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-cyan-950/30 border border-cyan-500/20 backdrop-blur-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-300 shrink-0">
-                <Sliders className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-white flex items-center gap-2">
-                  <span>تنظیم به عنوان افزونه مرورگر</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${formData.isExtension ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/40 text-slate-400 border border-white/10'}`}>
-                    {formData.isExtension ? 'کلید روشن/خاموش فعال' : 'غیرفعال'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                  با فعال‌سازی، دکمه روشن/خاموش (ON/OFF) مستقیماً روی کارت این آیتم در صفحه اصلی قرار می‌گیرد.
-                </p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0 mr-2">
-              <input
-                type="checkbox"
-                checked={Boolean(formData.isExtension)}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setFormData((prev) => {
-                    let nextTags = prev.tags;
-                    if (checked && !nextTags.includes('extension')) {
-                      nextTags = [...nextTags, 'extension'];
-                    }
-                    return {
-                      ...prev,
-                      isExtension: checked,
-                      tags: nextTags
-                    };
-                  });
-                }}
-                className="sr-only peer"
-              />
-              <div className="w-10 h-5 bg-slate-700/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
-            </label>
-          </div>
-
           {/* Background Preset */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1">

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Server, Clock, Activity, Cpu, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Server, Clock, Activity, Cpu, ShieldCheck, RefreshCw, Power } from 'lucide-react';
 import PinnedServicesWidget from './PinnedServicesWidget';
 import PinnedTasksWidget from './PinnedTasksWidget';
 import PinnedFirewallWidget from './PinnedFirewallWidget';
+import BrowserExtensionsWidget from './BrowserExtensionsWidget';
 import { fetchSystemInfo, findActiveAgentPort } from '../services/windowsAgentService';
 
 export default function ServicesPage() {
@@ -29,10 +30,10 @@ export default function ServicesPage() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              مدیریت سرویس‌ها، تسک‌ها و فایروال ویندوز
+              مدیریت سرویس‌ها، تسک‌ها، فایروال و افزونه‌های مرورگر
             </h2>
             <p className="text-xs text-slate-300">
-              پایش لحظه‌ای وضعیت، اجرا و توقف سرویس‌ها، مدیریت وظایف Task Scheduler و مدیریت پورت‌های باز فایروال
+              پایش لحظه‌ای وضعیت، اجرا و توقف سرویس‌ها، مدیریت وظایف Task Scheduler، پورت‌های باز فایروال و کنترل افزونه‌های مرورگر
             </p>
           </div>
         </div>
@@ -57,6 +58,11 @@ export default function ServicesPage() {
             </span>
           )}
         </div>
+      </div>
+
+      {/* Browser Extensions Section */}
+      <div className="w-full">
+        <BrowserExtensionsWidget />
       </div>
 
       {/* Main Widgets Grid: Services on Left, Tasks on Right */}
