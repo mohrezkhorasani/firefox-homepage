@@ -5,6 +5,7 @@ import {
 import SystemDrivesWidget from './SystemDrivesWidget';
 import GoogleAccountModal from './GoogleAccountModal';
 import AutofillManagerWidget from './AutofillManagerWidget';
+import RoutingHistoryWidget from './RoutingHistoryWidget';
 import { getGoogleConfig, getGoogleEvents } from '../services/calendarService';
 
 export default function ToolsPage({ pages, onRemovePage }) {
@@ -29,6 +30,11 @@ export default function ToolsPage({ pages, onRemovePage }) {
 
   return (
     <div className="w-full space-y-6 animate-fade-in" dir="rtl">
+      {/* 1. Traffic Routing History & IP Inspector (Top Section) */}
+      <div className="w-full">
+        <RoutingHistoryWidget />
+      </div>
+
       {/* Tools Grid: 2 rows or flexible 3-col grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* 1. Autofill Manager (دیتابیس مقادیر، دامین‌ها و فیلدها با امکان افزودن و حذف) */}
