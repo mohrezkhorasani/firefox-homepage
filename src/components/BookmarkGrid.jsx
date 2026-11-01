@@ -3,7 +3,8 @@ import {
   Server, KeyRound, Globe, MessageCircle, BookOpen, Bot, 
   Waves, Leaf, ShieldCheck, Zap, MessageSquare, Send, 
   HardDrive, Sparkles, Wifi, Bookmark as BookmarkIcon, 
-  Edit2, Palette, Trash2, Image as ImageIcon, X, Check
+  Edit2, Palette, Trash2, Image as ImageIcon, X, Check,
+  Wrench, Settings
 } from 'lucide-react';
 
 const LUCIDE_ICONS = {
@@ -22,6 +23,8 @@ const LUCIDE_ICONS = {
   HardDrive,
   Sparkles,
   Wifi,
+  Wrench,
+  Settings,
   Bookmark: BookmarkIcon
 };
 
@@ -36,6 +39,49 @@ export default function BookmarkGrid({
 }) {
   const [editingLogoBm, setEditingLogoBm] = useState(null);
   const [logoUrlInput, setLogoUrlInput] = useState('');
+  const [toastMessage, setToastMessage] = useState(null);
+
+  function showToast(msg) {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  }
+
+  function handleOpenBookmark(bm) {
+    if (!bm || !bm.url) return;
+    const url = bm.url.trim();
+
+    // Check if it's an internal browser URI (like about:debugging, about:config, chrome://...)
+    const isInternalScheme = /^(about:|chrome:\/\/|edge:\/\/)/i.test(url);
+
+    if (isInternalScheme) {
+      // 1. Dispatch custom event for our extension background worker to open seamlessly
+      let handledByExtension = false;
+      const onAck = () => { handledByExtension = true; };
+      window.addEventListener('MOHREZ_OPEN_URL_ACK', onAck, { once: true });
+      window.dispatchEvent(new CustomEvent('MOHREZ_OPEN_URL', { detail: { url } }));
+
+      // 2. Also try direct navigation
+      setTimeout(() => {
+        if (!handledByExtension) {
+          try {
+            window.location.href = url;
+          } catch (err) {
+            console.warn('Browser prevented direct navigation to about: URL', err);
+          }
+        }
+      }, 50);
+
+      // 3. Copy to clipboard as convenient fallback
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          showToast(`آدرس «${url}» کپی شد (در صورت نیاز در آدرس‌بار Paste کنید)`);
+        }).catch(() => {});
+      }
+    } else {
+      // Standard Web URL
+      window.location.href = url;
+    }
+  }
 
   const filtered = bookmarks.filter((bm) => {
     if (activeTag && activeTag !== 'all') {
@@ -60,7 +106,8 @@ export default function BookmarkGrid({
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {filtered.map((bm) => {
-          const LucideComp = LUCIDE_ICONS[bm.iconValue] || LUCIDE_ICONS[bm.fallbackIcon] || BookmarkIcon;
+          const defaultIcon = bm.url?.startsWith('about:') ? Wrench : (bm.isServer ? Server : Globe);
+          const LucideComp = LUCIDE_ICONS[bm.iconValue] || LUCIDE_ICONS[bm.fallbackIcon] || defaultIcon || BookmarkIcon;
           const customBg = bm.customBgColor || null;
 
           return (
@@ -68,7 +115,7 @@ export default function BookmarkGrid({
               key={bm.id}
               style={customBg ? { backgroundColor: customBg } : {}}
               className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-white/10 hover:border-white/30 transition text-shadow"
-              onClick={() => { window.location.href = bm.url; }}
+              onClick={() => handleOpenBookmark(bm)}
               title={bm.title}
             >
               {/* Sticky Tooltip on Hover showing Full Name */}
@@ -254,6 +301,14 @@ export default function BookmarkGrid({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[99999] bg-slate-900/95 border border-cyan-500/40 text-cyan-200 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-medium backdrop-blur-md animate-fade-in flex items-center gap-2 max-w-md">
+          <Wrench className="w-4 h-4 text-cyan-400 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

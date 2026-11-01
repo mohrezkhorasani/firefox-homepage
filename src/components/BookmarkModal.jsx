@@ -72,7 +72,9 @@ export default function BookmarkModal({
     if (!formData.title.trim() || !formData.url.trim()) return;
 
     let finalUrl = formData.url.trim();
-    if (!/^https?:\/\//i.test(finalUrl)) {
+    // Support about:, chrome:, edge:, file:, moz-extension:, ftp:, http:, https:
+    const hasScheme = /^(https?:\/\/|about:|chrome:\/\/|edge:\/\/|file:\/\/\/|moz-extension:\/\/|ftp:\/\/)/i.test(finalUrl);
+    if (!hasScheme) {
       finalUrl = 'https://' + finalUrl;
     }
 
@@ -119,17 +121,20 @@ export default function BookmarkModal({
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              آدرس وب‌سایت (URL):
+              آدرس وب‌سایت یا صفحه مرورگر (URL):
             </label>
             <input
               type="text"
               required
               dir="ltr"
-              placeholder="https://example.com"
+              placeholder="https://example.com یا about:debugging#/setup"
               value={formData.url}
               onChange={(e) => setFormData({ ...formData, url: e.target.value })}
               className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-cyan-400 transition font-mono"
             />
+            <span className="text-[11px] text-slate-400 mt-1 block">
+              پشتیبانی از انواع آدرس‌های وب و آدرس‌های داخلی مرورگر (مانند <code className="text-cyan-300 font-mono">about:debugging#/setup</code> یا <code className="text-cyan-300 font-mono">about:config</code>)
+            </span>
           </div>
 
           <div>
