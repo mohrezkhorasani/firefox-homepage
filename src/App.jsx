@@ -46,7 +46,22 @@ export default function App() {
 
   const [bookmarks, setBookmarks] = useState(() => {
     const saved = localStorage.getItem('homepage_bookmarks_v3');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Merge any missing extension defaults if needed
+          const existingIds = new Set(parsed.map((b) => b.id));
+          const missingExtensions = DEFAULT_BOOKMARKS.filter(
+            (d) => !existingIds.has(d.id) && d.isExtension
+          );
+          if (missingExtensions.length > 0) {
+            return [...parsed, ...missingExtensions];
+          }
+          return parsed;
+        }
+      } catch {}
+    }
     const oldV2 = localStorage.getItem('homepage_bookmarks_v2');
     if (oldV2) {
       try {
@@ -125,6 +140,39 @@ export default function App() {
     );
   }
 
+  function handleToggleExtension(id) {
+    setBookmarks((prev) =>
+      prev.map((b) => {
+        if (b.id !== id) return b;
+        const nextState = b.isEnabled === false ? true : false;
+        const updated = { ...b, isEnabled: nextState };
+
+        // 1. Dispatch custom event for extensions in browser
+        window.dispatchEvent(
+          new CustomEvent('MOHREZ_EXTENSION_STATE_CHANGED', {
+            detail: {
+              id: b.id,
+              title: b.title,
+              url: b.url,
+              isEnabled: nextState
+            }
+          })
+        );
+
+        // 2. Persist in localStorage dictionary
+        try {
+          const stored = JSON.parse(localStorage.getItem('homepage_extension_states') || '{}');
+          stored[b.id] = nextState;
+          if (b.title) stored[b.title.toLowerCase()] = nextState;
+          if (b.url) stored[b.url] = nextState;
+          localStorage.setItem('homepage_extension_states', JSON.stringify(stored));
+        } catch (e) {}
+
+        return updated;
+      })
+    );
+  }
+
   function openAddModal() {
     setEditingBookmark(null);
     setIsModalOpen(true);
@@ -197,6 +245,7 @@ export default function App() {
                   onDeleteBookmark={handleDeleteBookmark}
                   onUpdateBookmarkColor={handleUpdateBookmarkColor}
                   onUpdateBookmarkLogo={handleUpdateBookmarkLogo}
+                  onToggleExtension={handleToggleExtension}
                 />
               </div>
 

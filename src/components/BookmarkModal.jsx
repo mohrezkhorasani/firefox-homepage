@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2, Bookmark, Palette, Tag, ExternalLink } from 'lucide-react';
+import { X, Check, Trash2, Bookmark, Palette, Tag, ExternalLink, Sliders } from 'lucide-react';
 
 const GRADIENT_PRESETS = [
   { label: 'آبی اقیانوسی', value: 'from-blue-600/30 to-indigo-900/40 border-blue-500/30', color: '#3b82f6' },
@@ -29,15 +29,23 @@ export default function BookmarkModal({
     accentColor: GRADIENT_PRESETS[0].color,
     iconType: 'lucide',
     iconValue: 'Bookmark',
-    page: activePage || 'home'
+    page: activePage || 'home',
+    isExtension: false,
+    isEnabled: true
   });
 
   useEffect(() => {
     if (bookmark) {
+      const isExt = bookmark.isExtension ?? (
+        bookmark.tags?.includes('extension') ||
+        /^(about:debugging|about:addons|moz-extension:|chrome:\/\/extensions)/i.test(bookmark.url || '')
+      );
       setFormData({
         ...bookmark,
         tags: bookmark.tags || [],
-        page: bookmark.page || activePage || 'home'
+        page: bookmark.page || activePage || 'home',
+        isExtension: Boolean(isExt),
+        isEnabled: bookmark.isEnabled !== false
       });
     } else {
       setFormData({
@@ -49,7 +57,9 @@ export default function BookmarkModal({
         accentColor: GRADIENT_PRESETS[0].color,
         iconType: 'lucide',
         iconValue: 'Bookmark',
-        page: activePage || 'home'
+        page: activePage || 'home',
+        isExtension: false,
+        isEnabled: true
       });
     }
   }, [bookmark, isOpen, activePage]);
@@ -60,9 +70,27 @@ export default function BookmarkModal({
     if (tagId === 'all') return;
     setFormData((prev) => {
       const exists = prev.tags.includes(tagId);
+      const nextTags = exists ? prev.tags.filter((t) => t !== tagId) : [...prev.tags, tagId];
       return {
         ...prev,
-        tags: exists ? prev.tags.filter((t) => t !== tagId) : [...prev.tags, tagId]
+        tags: nextTags,
+        isExtension: tagId === 'extension' ? !exists : prev.isExtension
+      };
+    });
+  }
+
+  function handleUrlChange(newUrl) {
+    const isExtUrl = /^(about:debugging|about:addons|moz-extension:|chrome:\/\/extensions)/i.test(newUrl.trim());
+    setFormData((prev) => {
+      let tags = prev.tags;
+      if (isExtUrl && !tags.includes('extension')) {
+        tags = [...tags, 'extension'];
+      }
+      return {
+        ...prev,
+        url: newUrl,
+        isExtension: prev.isExtension || isExtUrl,
+        tags
       };
     });
   }
@@ -81,7 +109,9 @@ export default function BookmarkModal({
     onSave({
       ...formData,
       id: bookmark?.id || 'bm_' + Date.now(),
-      url: finalUrl
+      url: finalUrl,
+      isExtension: Boolean(formData.isExtension),
+      isEnabled: formData.isEnabled !== false
     });
     onClose();
   }
@@ -129,7 +159,7 @@ export default function BookmarkModal({
               dir="ltr"
               placeholder="https://example.com یا about:debugging#/setup"
               value={formData.url}
-              onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+              onChange={(e) => handleUrlChange(e.target.value)}
               className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-cyan-400 transition font-mono"
             />
             <span className="text-[11px] text-slate-400 mt-1 block">
@@ -178,6 +208,48 @@ export default function BookmarkModal({
                   );
                 })}
             </div>
+          </div>
+
+          {/* Extension Toggle Setting */}
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-cyan-950/30 border border-cyan-500/20 backdrop-blur-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-300 shrink-0">
+                <Sliders className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-2">
+                  <span>تنظیم به عنوان افزونه مرورگر</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${formData.isExtension ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/40 text-slate-400 border border-white/10'}`}>
+                    {formData.isExtension ? 'کلید روشن/خاموش فعال' : 'غیرفعال'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                  با فعال‌سازی، دکمه روشن/خاموش (ON/OFF) مستقیماً روی کارت این آیتم در صفحه اصلی قرار می‌گیرد.
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 mr-2">
+              <input
+                type="checkbox"
+                checked={Boolean(formData.isExtension)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setFormData((prev) => {
+                    let nextTags = prev.tags;
+                    if (checked && !nextTags.includes('extension')) {
+                      nextTags = [...nextTags, 'extension'];
+                    }
+                    return {
+                      ...prev,
+                      isExtension: checked,
+                      tags: nextTags
+                    };
+                  });
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-5 bg-slate-700/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+            </label>
           </div>
 
           {/* Background Preset */}
