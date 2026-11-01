@@ -10,6 +10,7 @@ export default function RoutingHistoryWidget() {
   const [routes, setRoutes] = useState([]);
   const [directIp, setDirectIp] = useState('2.179.167.151');
   const [proxyIp, setProxyIp] = useState('159.65.32.214');
+  const [vpnOnline, setVpnOnline] = useState(true);
   const [activeProfile, setActiveProfile] = useState('Default');
   const [routingOrder, setRoutingOrder] = useState('block-direct-proxy');
   const [globalProxy, setGlobalProxy] = useState(false);
@@ -38,9 +39,7 @@ export default function RoutingHistoryWidget() {
         setRoutes(data.routes || []);
         if (data.direct_ip) setDirectIp(data.direct_ip);
         if (data.proxy_ip) setProxyIp(data.proxy_ip);
-        if (data.active_profile) setActiveProfile(data.active_profile);
-        if (data.routing_order) setRoutingOrder(data.routing_order);
-        if (typeof data.global_proxy === 'boolean') setGlobalProxy(data.global_proxy);
+        if (typeof data.vpn_online === 'boolean') setVpnOnline(data.vpn_online);
         setIsServiceOnline(true);
       } else {
         setIsServiceOnline(false);
@@ -129,11 +128,11 @@ export default function RoutingHistoryWidget() {
                   : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${isServiceOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-                <span>{isServiceOnline ? 'پورت 23159 آنلاین' : 'سرویس آفلاین'}</span>
+                <span>{isServiceOnline ? 'واسط پایتون آنلاین (23159)' : 'سرویس آفلاین'}</span>
               </span>
             </h3>
             <p className="text-xs text-slate-300 mt-0.5">
-              پایش لحظه‌ای مسیر عبور ترافیک هر سایت بر اساس روتینگ Happ (مستقیم با آی‌پی ایران یا عبور از فیلترشکن)
+              پایش زنده ترافیک واقعی شبکه توسط واسط پایتون • ذخیره در دیتابیس SQLite با پاکسازی خودکار ۲۴ ساعته
             </p>
           </div>
         </div>
@@ -184,24 +183,32 @@ export default function RoutingHistoryWidget() {
         </div>
 
         {/* Proxy IP (VPN) */}
-        <div className="p-3.5 rounded-2xl bg-purple-950/30 border border-purple-500/30 flex items-center justify-between">
+        <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${
+          vpnOnline 
+            ? 'bg-purple-950/30 border-purple-500/30' 
+            : 'bg-rose-950/30 border-rose-500/30'
+        }`}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+              vpnOnline ? 'bg-purple-500/20 text-purple-400' : 'bg-rose-500/20 text-rose-400'
+            }`}>
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] text-purple-400 font-bold block uppercase tracking-wider">
+              <span className={`text-[10px] font-bold block uppercase tracking-wider ${
+                vpnOnline ? 'text-purple-400' : 'text-rose-400'
+              }`}>
                 آی‌پی فیلترشکن (VPN Exit IP)
               </span>
               <span className="font-mono text-sm font-bold text-white" dir="ltr">
-                {proxyIp}
+                {vpnOnline ? proxyIp : 'قطع می‌باشد (آفلاین)'}
               </span>
             </div>
           </div>
-          <span className="w-2 h-2 rounded-full bg-purple-400" />
+          <span className={`w-2 h-2 rounded-full ${vpnOnline ? 'bg-purple-400 animate-pulse' : 'bg-rose-500'}`} />
         </div>
 
-        {/* Happ Routing Profile Info */}
+        {/* VPN Core Status & SQLite */}
         <div className="p-3.5 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
@@ -209,16 +216,16 @@ export default function RoutingHistoryWidget() {
             </div>
             <div>
               <span className="text-[10px] text-cyan-400 font-bold block uppercase tracking-wider">
-                پروفایل روتینگ Happ
+                وضعیت فیلترشکن و دیتابیس
               </span>
               <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-0.5">
-                <span>{activeProfile}</span>
-                <span className="text-[10px] font-mono text-cyan-300 font-normal">({routingOrder})</span>
+                <span className={`w-2 h-2 rounded-full ${vpnOnline ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                <span>{vpnOnline ? 'فیلترشکن متصل است' : 'فیلترشکن قطع است'}</span>
               </span>
             </div>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono">
-            {globalProxy ? 'Global Proxy' : 'Rule-Based'}
+            SQLite (24h)
           </span>
         </div>
       </div>
@@ -384,7 +391,7 @@ export default function RoutingHistoryWidget() {
       <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
         <span>تعداد کل مسیرهای ثبت‌شده: {routes.length} روت</span>
         <span className="text-[11px] text-slate-400">
-          هماهنگ با افزونه Dual IP Inspector و هسته پروکسی Happ در پورت 23159
+          ذخیره در دیتابیس SQLite • پاک‌سازی دوره‌ای خودکار ۲۴ ساعته • هماهنگ با هسته زنده شبکه
         </span>
       </div>
 
