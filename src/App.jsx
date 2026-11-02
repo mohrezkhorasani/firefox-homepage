@@ -78,6 +78,10 @@ export default function App() {
   const [editingBookmark, setEditingBookmark] = useState(null);
 
   useEffect(() => {
+    document.title = 'New Tab';
+  }, []);
+
+  useEffect(() => {
     document.body.style.backgroundImage = `url('${currentBg}')`;
     localStorage.setItem('user_bg', currentBg);
   }, [currentBg]);
