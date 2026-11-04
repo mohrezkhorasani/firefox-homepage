@@ -131,32 +131,48 @@ export default function BrowserExtensionsWidget() {
     );
   }
 
-  function handleOpenUrl(url) {
+  async function handleOpenUrl(url) {
     if (!url) return;
     const targetUrl = url.trim();
     const isInternalScheme = /^(about:|chrome:\/\/|edge:\/\/)/i.test(targetUrl);
 
     if (isInternalScheme) {
-      let handled = false;
-      const onAck = () => { handled = true; };
-      window.addEventListener('MOHREZ_OPEN_URL_ACK', onAck, { once: true });
-      window.dispatchEvent(new CustomEvent('MOHREZ_OPEN_URL', { detail: { url: targetUrl } }));
+      let opened = false;
+      // 1. Python Site IP service on 23159
+      try {
+        const res = await fetch(`http://127.0.0.1:23159/api/open-url?url=${encodeURIComponent(targetUrl)}`, {
+          signal: AbortSignal.timeout(1500)
+        });
+        if (res.ok) opened = true;
+      } catch (err) {}
 
-      setTimeout(() => {
-        if (!handled) {
-          try {
-            window.location.href = targetUrl;
-          } catch (e) {}
-        }
-      }, 50);
+      // 2. Windows Tools Agent fallback on 23157
+      if (!opened) {
+        try {
+          const res = await fetch(`http://127.0.0.1:23157/api/open-url?url=${encodeURIComponent(targetUrl)}`, {
+            signal: AbortSignal.timeout(1500)
+          });
+          if (res.ok) opened = true;
+        } catch (err) {}
+      }
 
+      if (opened) {
+        showToast(`در حال باز کردن «${targetUrl}» در تب جدید فایرفاکس...`);
+        return;
+      }
+
+      // 3. Fallback: Copy to clipboard and inform user
       if (navigator.clipboard) {
         navigator.clipboard.writeText(targetUrl).then(() => {
-          showToast(`آدرس «${targetUrl}» کپی شد (در صورت نیاز در آدرس‌بار Paste کنید)`);
+          showToast(`آدرس «${targetUrl}» در کلیپ‌بورد کپی شد. فایرفاکس به دلایل امنیتی لینک مستقیم به about: را مسدود می‌کند؛ لطفاً آن را در آدرس‌بار Paste کنید.`);
         }).catch(() => {});
       }
     } else {
-      window.open(targetUrl, '_blank');
+      let finalUrl = targetUrl;
+      if (!/^(https?:\/\/|file:\/\/\/|moz-extension:\/\/|ftp:\/\/)/i.test(finalUrl)) {
+        finalUrl = 'https://' + finalUrl;
+      }
+      window.open(finalUrl, '_blank');
     }
   }
 
