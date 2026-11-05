@@ -99,9 +99,15 @@ export default function BookmarkGrid({
       // Standard Web URL
       if (e && (e.ctrlKey || e.metaKey)) {
         window.open(finalUrl, '_blank');
-      } else {
-        window.location.href = finalUrl;
+        return;
       }
+      try {
+        if (window.top && window.top !== window) {
+          window.top.location.href = finalUrl;
+          return;
+        }
+      } catch (err) {}
+      window.location.href = finalUrl;
     }
   }
 
@@ -143,12 +149,17 @@ export default function BookmarkGrid({
             <a
               key={bm.id}
               href={isInternalScheme ? '#' : finalUrl}
+              target={isInternalScheme ? '_self' : '_top'}
+              rel="noopener noreferrer"
               style={customBg ? { backgroundColor: customBg } : {}}
               className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-white/10 hover:border-white/30 transition text-shadow no-underline block"
               onClick={(e) => {
                 if (isInternalScheme) {
                   e.preventDefault();
                   handleOpenBookmark(bm, e);
+                } else if (e.ctrlKey || e.metaKey) {
+                  e.preventDefault();
+                  window.open(finalUrl, '_blank');
                 }
               }}
               onAuxClick={(e) => {
