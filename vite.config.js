@@ -26,8 +26,16 @@ const AI_SANCTION_STRINGS = [
   'country is not supported'
 ];
 
+const aiSanctionCache = new Map();
+
 function checkAiSanctionDeep(host) {
   return new Promise((resolve) => {
+    const key = host.toLowerCase();
+    const cached = aiSanctionCache.get(key);
+    if (cached && (Date.now() - cached.time < 45000)) {
+      return resolve(cached.data);
+    }
+
     const probeUrl = host.toLowerCase().includes('gemini')
       ? 'https://gemini.google.com/'
       : host.toLowerCase().includes('antigravity')
@@ -36,18 +44,26 @@ function checkAiSanctionDeep(host) {
 
     const cmd = `curl.exe -s -L -x http://127.0.0.1:10809 -m 3.5 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0" -w "\\n__DELIM__\\nHTTP_CODE:%{http_code}\\nTIME_TOTAL:%{time_total}\\nURL_EFFECTIVE:%{url_effective}" "${probeUrl}"`;
 
-    exec(cmd, { maxBuffer: 1024 * 1024 * 4 }, (err, stdout) => {
+    exec(cmd, { windowsHide: true, maxBuffer: 1024 * 1024 * 4 }, (err, stdout) => {
       if (!stdout || !stdout.includes('__DELIM__')) {
         // Fallback: try direct without proxy if proxy was down
-        exec(`curl.exe -s -L -m 3.5 -A "Mozilla/5.0" -w "\\n__DELIM__\\nHTTP_CODE:%{http_code}\\nTIME_TOTAL:%{time_total}\\nURL_EFFECTIVE:%{url_effective}" "${probeUrl}"`, { maxBuffer: 1024 * 1024 * 4 }, (err2, stdout2) => {
+        exec(`curl.exe -s -L -m 3.5 -A "Mozilla/5.0" -w "\\n__DELIM__\\nHTTP_CODE:%{http_code}\\nTIME_TOTAL:%{time_total}\\nURL_EFFECTIVE:%{url_effective}" "${probeUrl}"`, { windowsHide: true, maxBuffer: 1024 * 1024 * 4 }, (err2, stdout2) => {
           if (!stdout2 || !stdout2.includes('__DELIM__')) {
-            return resolve({ host, online: false, sanctioned: false, time: null, error: 'Connection failed' });
+            const res = { host, online: false, sanctioned: false, time: null, error: 'Connection failed' };
+            aiSanctionCache.set(key, { data: res, time: Date.now() });
+            return resolve(res);
           }
-          parseAiOutput(host, probeUrl, stdout2, resolve);
+          parseAiOutput(host, probeUrl, stdout2, (res) => {
+            aiSanctionCache.set(key, { data: res, time: Date.now() });
+            resolve(res);
+          });
         });
         return;
       }
-      parseAiOutput(host, probeUrl, stdout, resolve);
+      parseAiOutput(host, probeUrl, stdout, (res) => {
+        aiSanctionCache.set(key, { data: res, time: Date.now() });
+        resolve(res);
+      });
     });
   });
 }
@@ -190,7 +206,7 @@ function checkSanctionStatus(host) {
     const isTarget = SANCTION_DOMAINS.some((d) => host.toLowerCase().includes(d));
     if (!isTarget) return resolve({ sanctioned: false, httpCode: null });
 
-    exec(`curl.exe -s -o NUL -w "%{http_code}" -m 2.5 "https://${host}"`, (err, stdout) => {
+    exec(`curl.exe -s -o NUL -w "%{http_code}" -m 2.5 "https://${host}"`, { windowsHide: true }, (err, stdout) => {
       const code = parseInt(stdout ? stdout.trim() : '0', 10);
       const sanctioned = code === 403 || code === 451;
       resolve({ sanctioned, httpCode: code });
@@ -224,61 +240,55 @@ function probeTarget(rawHost) {
       return resolve(aiRes);
     }
 
-    // 1. If explicit custom port given, probe it directly via TCP
+    // 1. If explicit custom port given, probe it directly via TCP (In-process socket, 0 windows)
     if (customPort) {
       const tcp = await checkTcpPort(host, customPort, 800);
       if (tcp.ok) {
-        const { sanctioned, httpCode } = await checkSanctionStatus(host);
         return resolve({
           host: clean,
           online: true,
-          sanctioned,
-          httpCode,
+          sanctioned: false,
           time: tcp.time,
           method: 'tcp-custom',
           port: customPort
         });
       }
+      return resolve({ host: clean, online: false, time: null });
     }
 
-    // 2. Try ICMP ping (500ms timeout)
+    // 2. Fast TCP Port Probes (Node in-process socket, ZERO processes, ZERO windows)
+    const tcpResults = await Promise.all(
+      COMMON_PORTS.map((p) => checkTcpPort(host, p, 350))
+    );
+    const successful = tcpResults.find((r) => r.ok);
+    if (successful) {
+      return resolve({
+        host: clean,
+        online: true,
+        sanctioned: false,
+        time: successful.time || 1,
+        method: 'tcp',
+        port: successful.port
+      });
+    }
+
+    // 3. Fallback: Completely headless ICMP ping (windowsHide: true)
     const cmd = process.platform === 'win32'
-      ? `ping -n 1 -w 500 ${host}`
+      ? `ping -n 1 -w 400 ${host}`
       : `ping -c 1 -W 1 ${host}`;
 
-    exec(cmd, async (err, stdout) => {
+    exec(cmd, { windowsHide: true }, (err, stdout) => {
       const match = stdout ? stdout.match(/time[=<](\d+(?:\.\d+)?)ms/i) : null;
       if (!err && match) {
         const time = Math.round(parseFloat(match[1])) || 1;
-        const { sanctioned, httpCode } = await checkSanctionStatus(host);
         return resolve({
           host: clean,
           online: true,
-          sanctioned,
-          httpCode,
+          sanctioned: false,
           time,
           method: 'icmp'
         });
       }
-
-      // 3. Fallback: probe common service ports (RDP, Web, SMB, SSH, Printer)
-      const tcpResults = await Promise.all(
-        COMMON_PORTS.map((p) => checkTcpPort(host, p, 500))
-      );
-      const successful = tcpResults.find((r) => r.ok);
-      if (successful) {
-        const { sanctioned, httpCode } = await checkSanctionStatus(host);
-        return resolve({
-          host: clean,
-          online: true,
-          sanctioned,
-          httpCode,
-          time: successful.time || 1,
-          method: 'tcp-fallback',
-          port: successful.port
-        });
-      }
-
       return resolve({ host: clean, online: false, time: null });
     });
   });
