@@ -105,7 +105,7 @@ export default function ServerPingWidget({
               dotClass = 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.9)]';
               latencyText = 'تحریم';
               latencyColor = 'text-purple-300 font-bold';
-              statusLabel = 'تحریم (403 Forbidden)';
+              statusLabel = res.reason || 'تحریم لوکیشن (is not available in your country)';
               statusBadgeClass = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
             } else if (isOnline) {
               dotClass = 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]';

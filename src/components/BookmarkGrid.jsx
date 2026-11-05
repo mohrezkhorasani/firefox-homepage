@@ -96,18 +96,8 @@ export default function BookmarkGrid({
         }).catch(() => {});
       }
     } else {
-      // Standard Web URL
-      if (e && (e.ctrlKey || e.metaKey)) {
-        window.open(finalUrl, '_blank');
-        return;
-      }
-      try {
-        if (window.top && window.top !== window) {
-          window.top.location.href = finalUrl;
-          return;
-        }
-      } catch (err) {}
-      window.location.href = finalUrl;
+      // Standard Web URL: Open in a clean new tab to prevent iframe X-Frame-Options embedding blocks (e.g. Bale, banks)
+      window.open(finalUrl, '_blank');
     }
   }
 
@@ -149,7 +139,7 @@ export default function BookmarkGrid({
             <a
               key={bm.id}
               href={isInternalScheme ? '#' : finalUrl}
-              target={isInternalScheme ? '_self' : '_top'}
+              target={isInternalScheme ? '_self' : '_blank'}
               rel="noopener noreferrer"
               style={customBg ? { backgroundColor: customBg } : {}}
               className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-white/10 hover:border-white/30 transition text-shadow no-underline block"

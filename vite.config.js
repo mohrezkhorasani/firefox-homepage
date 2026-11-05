@@ -6,7 +6,148 @@ import { exec } from 'child_process';
 import net from 'net';
 
 const COMMON_PORTS = [1940, 3389, 80, 443, 445, 135, 8080, 22, 9100, 139];
-const SANCTION_DOMAINS = ['gemini.google.com', 'antigravity.google', 'aistudio.google.com'];
+const SANCTION_DOMAINS = ['gemini.google.com', 'antigravity.google', 'aistudio.google.com', 'generativelanguage.googleapis.com'];
+
+const AI_SANCTION_STRINGS = [
+  'is not currently available in your country',
+  "isn't currently available in your country",
+  "isn't currently available",
+  'is not available in your country',
+  'not available in your country',
+  'not currently available',
+  'not supported in your country',
+  "isn't supported in your country",
+  'user location is not supported',
+  'location is not supported',
+  'unsupported country',
+  'geographic restriction',
+  'region is not supported',
+  'country not supported',
+  'country is not supported'
+];
+
+function checkAiSanctionDeep(host) {
+  return new Promise((resolve) => {
+    const probeUrl = host.toLowerCase().includes('gemini')
+      ? 'https://gemini.google.com/'
+      : host.toLowerCase().includes('antigravity')
+      ? 'https://antigravity.google/'
+      : `https://${host}/`;
+
+    const cmd = `curl.exe -s -L -x http://127.0.0.1:10809 -m 3.5 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0" -w "\\n__DELIM__\\nHTTP_CODE:%{http_code}\\nTIME_TOTAL:%{time_total}\\nURL_EFFECTIVE:%{url_effective}" "${probeUrl}"`;
+
+    exec(cmd, { maxBuffer: 1024 * 1024 * 4 }, (err, stdout) => {
+      if (!stdout || !stdout.includes('__DELIM__')) {
+        // Fallback: try direct without proxy if proxy was down
+        exec(`curl.exe -s -L -m 3.5 -A "Mozilla/5.0" -w "\\n__DELIM__\\nHTTP_CODE:%{http_code}\\nTIME_TOTAL:%{time_total}\\nURL_EFFECTIVE:%{url_effective}" "${probeUrl}"`, { maxBuffer: 1024 * 1024 * 4 }, (err2, stdout2) => {
+          if (!stdout2 || !stdout2.includes('__DELIM__')) {
+            return resolve({ host, online: false, sanctioned: false, time: null, error: 'Connection failed' });
+          }
+          parseAiOutput(host, probeUrl, stdout2, resolve);
+        });
+        return;
+      }
+      parseAiOutput(host, probeUrl, stdout, resolve);
+    });
+  });
+}
+
+function parseAiOutput(host, probeUrl, stdout, resolve) {
+  const [body, metaStr] = stdout.split('__DELIM__');
+  let httpCode = 0;
+  let timeTotal = 0;
+  let effectiveUrl = probeUrl;
+
+  const lines = (metaStr || '').split('\n');
+  for (const line of lines) {
+    if (line.startsWith('HTTP_CODE:')) {
+      httpCode = parseInt(line.split(':')[1].trim(), 10) || 0;
+    } else if (line.startsWith('TIME_TOTAL:')) {
+      timeTotal = parseFloat(line.split(':')[1].trim()) || 0;
+    } else if (line.startsWith('URL_EFFECTIVE:')) {
+      effectiveUrl = line.split(':')[1].trim();
+    }
+  }
+
+  const latencyMs = Math.round(timeTotal * 1000) || 50;
+
+  // 1. Status 403 or 451
+  if (httpCode === 403 || httpCode === 451) {
+    return resolve({
+      host,
+      online: false,
+      sanctioned: true,
+      time: null,
+      httpCode,
+      reason: `تحریم HTTP ${httpCode}`
+    });
+  }
+
+  // 2. Redirect to unavailable
+  if (effectiveUrl.toLowerCase().includes('/unavailable') || effectiveUrl.toLowerCase().includes('/error')) {
+    return resolve({
+      host,
+      online: false,
+      sanctioned: true,
+      time: null,
+      httpCode,
+      reason: 'تحریم لوکیشن (ریدایرکت به unavailable)'
+    });
+  }
+
+  // 3. Scan body for polite soft geo-block strings
+  const bodyLower = (body || '').toLowerCase();
+  for (const phrase of AI_SANCTION_STRINGS) {
+    if (bodyLower.includes(phrase)) {
+      return resolve({
+        host,
+        online: false,
+        sanctioned: true,
+        time: null,
+        httpCode,
+        reason: `تحریم لوکیشن (${phrase})`
+      });
+    }
+  }
+
+  // 4. Check Google GeoIP country in WIZ_global_data
+  const m = body.match(/window\.WIZ_global_data\s*=\s*(\{.*?\});/);
+  if (m) {
+    const cm = m[1].match(/"vXmutd"\s*:\s*"\%\.\@\."([A-Z]{2})"/);
+    if (cm && ['IR', 'CU', 'SY', 'KP'].includes(cm[1])) {
+      return resolve({
+        host,
+        online: false,
+        sanctioned: true,
+        time: null,
+        httpCode,
+        country: cm[1],
+        reason: `تحریم لوکیشن کشور (${cm[1]})`
+      });
+    }
+  }
+
+  // 5. Success
+  if (httpCode >= 200 && httpCode < 400) {
+    return resolve({
+      host,
+      online: true,
+      sanctioned: false,
+      time: Math.max(latencyMs, 20),
+      httpCode,
+      method: 'http-ai-probe'
+    });
+  }
+
+  return resolve({
+    host,
+    online: false,
+    sanctioned: false,
+    time: null,
+    httpCode,
+    error: `HTTP ${httpCode}`
+  });
+}
 
 function checkTcpPort(host, port, timeout = 450) {
   return new Promise((resolve) => {
@@ -74,6 +215,13 @@ function probeTarget(rawHost) {
 
     if (!host || !/^[a-zA-Z0-9.-]+$/.test(host)) {
       return resolve({ host: rawHost, online: false, time: null, error: 'invalid host' });
+    }
+
+    // Special: AI Services (Gemini, Antigravity) undergo deep HTTP geo-sanction probe (never fake 1ms ICMP ping)
+    const isAi = SANCTION_DOMAINS.some((d) => host.toLowerCase().includes(d));
+    if (isAi) {
+      const aiRes = await checkAiSanctionDeep(clean);
+      return resolve(aiRes);
     }
 
     // 1. If explicit custom port given, probe it directly via TCP
