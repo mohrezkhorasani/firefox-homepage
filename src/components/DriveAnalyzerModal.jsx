@@ -13,7 +13,9 @@ import {
   Search, 
   FolderTree, 
   Info,
-  ChevronDown
+  Layers,
+  ChevronDown,
+  CornerDownLeft
 } from 'lucide-react';
 import { analyzeDriveFolder } from '../services/windowsAgentService';
 
