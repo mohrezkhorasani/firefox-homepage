@@ -59,7 +59,7 @@ export default function WeatherWidget() {
   const dailyMin = weatherData?.daily?.temperature_2m_min || [];
 
   return (
-    <div className="flex flex-col md:flex-row items-center gap-4">
+    <div className="flex flex-col md:flex-row items-center gap-4 -mr-5.5">
       {/* City & Today Temp */}
       <div className="flex items-center gap-2.5">
         <CurrentIcon className={`w-8 h-8 ${currentInfo.color}`} />

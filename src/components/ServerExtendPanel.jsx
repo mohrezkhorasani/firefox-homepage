@@ -285,7 +285,7 @@ export default function ServerExtendPanel({
               if (isSanctioned) {
                 dotClass = 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.9)]';
                 badgeBg = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
-                statusText = 'تحریم (403)';
+                statusText = 'تحریم لوکیشن';
               } else if (isOnline) {
                 dotClass = 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]';
                 badgeBg = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';

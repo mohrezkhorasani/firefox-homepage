@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2, Bookmark, Palette, Tag, ExternalLink } from 'lucide-react';
+import { X, Check, Trash2, Bookmark, Palette, Tag, ExternalLink, Sliders } from 'lucide-react';
 
 const GRADIENT_PRESETS = [
   { label: 'آبی اقیانوسی', value: 'from-blue-600/30 to-indigo-900/40 border-blue-500/30', color: '#3b82f6' },
@@ -29,15 +29,23 @@ export default function BookmarkModal({
     accentColor: GRADIENT_PRESETS[0].color,
     iconType: 'lucide',
     iconValue: 'Bookmark',
-    page: activePage || 'home'
+    page: activePage || 'home',
+    isExtension: false,
+    isEnabled: true
   });
 
   useEffect(() => {
     if (bookmark) {
+      const isExt = bookmark.isExtension ?? (
+        bookmark.tags?.includes('extension') ||
+        /^(about:debugging|about:addons|moz-extension:|chrome:\/\/extensions)/i.test(bookmark.url || '')
+      );
       setFormData({
         ...bookmark,
         tags: bookmark.tags || [],
-        page: bookmark.page || activePage || 'home'
+        page: bookmark.page || activePage || 'home',
+        isExtension: Boolean(isExt),
+        isEnabled: bookmark.isEnabled !== false
       });
     } else {
       setFormData({
@@ -49,7 +57,9 @@ export default function BookmarkModal({
         accentColor: GRADIENT_PRESETS[0].color,
         iconType: 'lucide',
         iconValue: 'Bookmark',
-        page: activePage || 'home'
+        page: activePage || 'home',
+        isExtension: false,
+        isEnabled: true
       });
     }
   }, [bookmark, isOpen, activePage]);
@@ -60,9 +70,27 @@ export default function BookmarkModal({
     if (tagId === 'all') return;
     setFormData((prev) => {
       const exists = prev.tags.includes(tagId);
+      const nextTags = exists ? prev.tags.filter((t) => t !== tagId) : [...prev.tags, tagId];
       return {
         ...prev,
-        tags: exists ? prev.tags.filter((t) => t !== tagId) : [...prev.tags, tagId]
+        tags: nextTags,
+        isExtension: tagId === 'extension' ? !exists : prev.isExtension
+      };
+    });
+  }
+
+  function handleUrlChange(newUrl) {
+    const isExtUrl = /^(about:debugging|about:addons|moz-extension:|chrome:\/\/extensions)/i.test(newUrl.trim());
+    setFormData((prev) => {
+      let tags = prev.tags;
+      if (isExtUrl && !tags.includes('extension')) {
+        tags = [...tags, 'extension'];
+      }
+      return {
+        ...prev,
+        url: newUrl,
+        isExtension: prev.isExtension || isExtUrl,
+        tags
       };
     });
   }
@@ -72,14 +100,18 @@ export default function BookmarkModal({
     if (!formData.title.trim() || !formData.url.trim()) return;
 
     let finalUrl = formData.url.trim();
-    if (!/^https?:\/\//i.test(finalUrl)) {
+    // Support about:, chrome:, edge:, file:, moz-extension:, ftp:, http:, https:
+    const hasScheme = /^(https?:\/\/|about:|chrome:\/\/|edge:\/\/|file:\/\/\/|moz-extension:\/\/|ftp:\/\/)/i.test(finalUrl);
+    if (!hasScheme) {
       finalUrl = 'https://' + finalUrl;
     }
 
     onSave({
       ...formData,
       id: bookmark?.id || 'bm_' + Date.now(),
-      url: finalUrl
+      url: finalUrl,
+      isExtension: Boolean(formData.isExtension),
+      isEnabled: formData.isEnabled !== false
     });
     onClose();
   }
@@ -119,17 +151,20 @@ export default function BookmarkModal({
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              آدرس وب‌سایت (URL):
+              آدرس وب‌سایت یا صفحه مرورگر (URL):
             </label>
             <input
               type="text"
               required
               dir="ltr"
-              placeholder="https://example.com"
+              placeholder="https://example.com یا about:debugging#/setup"
               value={formData.url}
-              onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+              onChange={(e) => handleUrlChange(e.target.value)}
               className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-cyan-400 transition font-mono"
             />
+            <span className="text-[11px] text-slate-400 mt-1 block">
+              پشتیبانی از انواع آدرس‌های وب و آدرس‌های داخلی مرورگر (مانند <code className="text-cyan-300 font-mono">about:debugging#/setup</code> یا <code className="text-cyan-300 font-mono">about:config</code>)
+            </span>
           </div>
 
           <div>

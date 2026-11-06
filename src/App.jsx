@@ -5,10 +5,12 @@ import BookmarkModal from './components/BookmarkModal';
 import TagFilter from './components/TagFilter';
 import BottomNav from './components/BottomNav';
 import ToolsPage from './components/ToolsPage';
+import ServicesPage from './components/ServicesPage';
 import TodoWidget from './components/TodoWidget';
 import MarketWidget from './components/MarketWidget';
 import ApiMonitorWidget from './components/ApiMonitorWidget';
 import NetworkSpeedWidget from './components/NetworkSpeedWidget';
+import ActivePortsBottomWidget from './components/ActivePortsBottomWidget';
 import { DEFAULT_BOOKMARKS } from './data/defaultBookmarks';
 import { DEFAULT_TAGS } from './data/defaultTags';
 
@@ -20,17 +22,39 @@ export default function App() {
   });
 
   const [pages, setPages] = useState(() => {
-    const saved = localStorage.getItem('homepage_pages');
-    return saved ? JSON.parse(saved) : [
+    const defaultPages = [
       { id: 'home', name: 'Home', icon: 'Home' },
-      { id: 'tools', name: 'Tools', icon: 'Wrench' }
+      { id: 'tools', name: 'Tools', icon: 'Wrench' },
+      { id: 'services', name: 'Services', icon: 'Server' }
     ];
+    const saved = localStorage.getItem('homepage_pages');
+    if (!saved) return defaultPages;
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        if (!parsed.some(p => p.id === 'services')) {
+          parsed.push({ id: 'services', name: 'Services', icon: 'Server' });
+        }
+        return parsed;
+      }
+      return defaultPages;
+    } catch {
+      return defaultPages;
+    }
   });
   const [activePage, setActivePage] = useState('home');
 
   const [bookmarks, setBookmarks] = useState(() => {
     const saved = localStorage.getItem('homepage_bookmarks_v3');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Extensions are managed exclusively on the Services page!
+          return parsed.filter(b => !b.isExtension && b.id !== 'tab-ip-badge' && b.id !== 'quick-autofill');
+        }
+      } catch {}
+    }
     const oldV2 = localStorage.getItem('homepage_bookmarks_v2');
     if (oldV2) {
       try {
@@ -38,10 +62,10 @@ export default function App() {
         return parsed.map(b => {
           const def = DEFAULT_BOOKMARKS.find(d => d.id === b.id);
           return def ? { ...b, customBgColor: b.customBgColor || def.customBgColor } : b;
-        });
+        }).filter(b => !b.isExtension && b.id !== 'tab-ip-badge' && b.id !== 'quick-autofill');
       } catch {}
     }
-    return DEFAULT_BOOKMARKS;
+    return DEFAULT_BOOKMARKS.filter(b => !b.isExtension && b.id !== 'tab-ip-badge' && b.id !== 'quick-autofill');
   });
 
   const [tags, setTags] = useState(() => {
@@ -52,6 +76,10 @@ export default function App() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState(null);
+
+  useEffect(() => {
+    document.title = 'New Tab';
+  }, []);
 
   useEffect(() => {
     document.body.style.backgroundImage = `url('${currentBg}')`;
@@ -133,7 +161,7 @@ export default function App() {
 
   const pageBookmarks = bookmarks.filter((bm) => {
     const bmPage = bm.page || 'home';
-    if (activePage === 'tools') return false;
+    if (activePage === 'tools' || activePage === 'services') return false;
     return bmPage === activePage;
   });
 
@@ -156,12 +184,16 @@ export default function App() {
 
       {/* Center Content Wrapper: positioned cleanly between the left menu (BottomNav) and right menu (ApiMonitor) */}
       <div className="lg:ml-[225px] xl:mr-[345px] transition-all">
-        {/* Header (hidden in tools page if desired, or compact) */}
-        {activePage !== 'tools' && <Header />}
+        {/* Header (hidden in tools and services pages) */}
+        {activePage !== 'tools' && activePage !== 'services' && <Header />}
 
         {/* Main Grid */}
-        <main className={`w-full grid grid-cols-1 lg:grid-cols-3 gap-6 text-shadow ${activePage === 'tools' ? 'pt-8' : ''}`}>
-          {activePage === 'tools' ? (
+        <main className={`w-full grid grid-cols-1 lg:grid-cols-3 gap-6 text-shadow ${activePage === 'tools' || activePage === 'services' ? 'pt-8' : ''}`}>
+          {activePage === 'services' ? (
+            <div className="lg:col-span-3">
+              <ServicesPage />
+            </div>
+          ) : activePage === 'tools' ? (
             <div className="lg:col-span-3">
               <ToolsPage pages={pages} onRemovePage={handleRemovePage} />
             </div>
@@ -190,8 +222,10 @@ export default function App() {
         </main>
       </div>
 
-      {/* Bottom Right: Tag Filters */}
-      {activePage !== 'tools' && (
+      {/* Bottom Right: Tag Filters (on home/other pages) or Active Ports (on services page) */}
+      {activePage === 'services' ? (
+        <ActivePortsBottomWidget />
+      ) : activePage !== 'tools' && (
         <TagFilter
           tags={tags}
           activeTag={activeTag}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Home, Wrench, Plus, X, Layers, Check } from 'lucide-react';
+import { Home, Wrench, Plus, X, Layers, Check, Server } from 'lucide-react';
 import IpWidget from './IpWidget';
 import ServerPingWidget from './ServerPingWidget';
 import GithubWidget from './GithubWidget';
@@ -78,14 +78,29 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
     setIsRefreshing(false);
   }, [servers]);
 
-  // Initial ping on mount & 45s periodic refresh
+  // Initial ping on mount (pinned servers only for speed & zero CPU load)
   useEffect(() => {
-    pingAll(servers);
+    const pinned = servers.filter((s) => s.pinned);
+    const initialTargets = pinned.length > 0 ? pinned : servers.slice(0, 4);
+    pingAll(initialTargets);
+
     const interval = setInterval(() => {
-      pingAll();
+      if (isExtendOpen) {
+        pingAll(servers);
+      } else {
+        const p = servers.filter((s) => s.pinned);
+        pingAll(p.length > 0 ? p : servers.slice(0, 4));
+      }
     }, 45000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isExtendOpen, servers]);
+
+  // Ping all servers whenever user opens the full server list modal
+  useEffect(() => {
+    if (isExtendOpen) {
+      pingAll(servers);
+    }
+  }, [isExtendOpen]);
 
   function handleTogglePin(id) {
     setServers((prev) =>
@@ -155,8 +170,9 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
           {pages.map((p) => {
             const isActive = activePage === p.id;
             const isHome = p.id === 'home';
+            const isServices = p.id === 'services';
             const isTools = p.id === 'tools';
-            const Icon = isHome ? Home : isTools ? Wrench : Layers;
+            const Icon = isHome ? Home : isServices ? Server : isTools ? Wrench : Layers;
 
             return (
               <button

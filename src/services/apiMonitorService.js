@@ -56,6 +56,7 @@ export function extractSelectablePaths(obj, prefix = '', depth = 0, maxDepth = 4
 
   if (Array.isArray(obj)) {
     if (obj.length > 0) {
+      // Sample first 2 array elements
       obj.slice(0, 2).forEach((item, index) => {
         const currentPath = prefix ? `${prefix}[${index}]` : `[${index}]`;
         if (typeof item === 'object' && item !== null) {
@@ -96,13 +97,14 @@ export function formatParamValue(val) {
  */
 export function getValueLightClass(val) {
   if (val === undefined || val === null || val === '') {
-    return 'bg-gray-500/40 text-gray-400';
+    return 'bg-gray-500/40 text-gray-400'; // Dim/Off
   }
   if (typeof val === 'boolean') {
     return val
       ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]'
       : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)]';
   }
+  // Valid non-empty value
   return 'bg-emerald-400/90 shadow-[0_0_6px_rgba(52,211,153,0.7)]';
 }
 
@@ -115,6 +117,7 @@ export async function executeApiCall(api) {
     return { ok: false, status: 0, statusText: 'آدرس URL وارد نشده است', time: null, data: null };
   }
 
+  // Convert headers array [{ key, value }] to object
   const headersObj = {};
   if (Array.isArray(headers)) {
     headers.forEach((h) => {
@@ -154,7 +157,7 @@ export async function executeApiCall(api) {
       };
     }
   } catch (err) {
-    // Fall through to direct browser fetch
+    // If proxy not reachable, fall through to direct browser fetch
   }
 
   // 2. Direct browser fetch fallback

@@ -140,7 +140,7 @@ export default function FullCalendarView({ onClose }) {
               className="p-1 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition"
               title="سال بعد"
             >
-              <ChevronsRight className="w-4 h-4" />
+              <ChevronsRight className="w-4 h-4 " />
             </button>
             <button
               onClick={handleNextMonth}

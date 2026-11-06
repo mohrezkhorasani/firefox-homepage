@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { HardDrive, RefreshCw, AlertTriangle, CheckCircle2, Server, Cpu } from 'lucide-react';
+import { HardDrive, RefreshCw, AlertTriangle, CheckCircle2, FolderTree, BarChart2 } from 'lucide-react';
 import { fetchSystemDrives } from '../services/windowsAgentService';
+import DriveAnalyzerModal from './DriveAnalyzerModal';
 
 export default function SystemDrivesWidget() {
   const [drivesData, setDrivesData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Full-page Modal State
+  const [isAnalyzerOpen, setIsAnalyzerOpen] = useState(false);
+  const [selectedDriveForAnalysis, setSelectedDriveForAnalysis] = useState('C:');
 
   async function loadDrives() {
     setIsLoading(true);
@@ -29,6 +34,13 @@ export default function SystemDrivesWidget() {
     return () => clearInterval(timer);
   }, []);
 
+  function handleOpenAnalyzer(driveName) {
+    setSelectedDriveForAnalysis(driveName || 'C:');
+    setIsAnalyzerOpen(true);
+  }
+
+  const drivesList = drivesData?.drives || [];
+
   return (
     <div className="glass rounded-3xl p-6 border border-white/10 flex flex-col h-[520px]">
       {/* Header */}
@@ -46,11 +58,17 @@ export default function SystemDrivesWidget() {
         </div>
 
         <div className="flex items-center gap-2">
-          {drivesData?.port && (
-            <span className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono">
-              Port: {drivesData.port}
-            </span>
+          {drivesList.length > 0 && (
+            <button
+              onClick={() => handleOpenAnalyzer(drivesList[0]?.drive || 'C:')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md"
+              title="تحلیل جامع و درختی فولدرها"
+            >
+              <FolderTree className="w-3.5 h-3.5" />
+              <span>تحلیل درختی</span>
+            </button>
           )}
+
           <button
             onClick={loadDrives}
             disabled={isLoading}
@@ -82,7 +100,7 @@ export default function SystemDrivesWidget() {
             </button>
           </div>
         ) : (
-          drivesData?.drives?.map((d) => {
+          drivesList.map((d) => {
             const isHigh = d.percent >= 90;
             const isMid = d.percent >= 75 && !isHigh;
 
@@ -121,9 +139,20 @@ export default function SystemDrivesWidget() {
                     </span>
                   </div>
 
-                  <span className={`text-xs font-bold font-mono ${textColor}`}>
-                    {d.percent}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold font-mono ${textColor}`}>
+                      {d.percent}%
+                    </span>
+
+                    <button
+                      onClick={() => handleOpenAnalyzer(d.drive)}
+                      className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-xl bg-white/5 hover:bg-indigo-600 hover:text-white text-slate-300 border border-white/10 transition shadow-sm"
+                      title={`تحلیل درختی فولدرهای درایو ${d.drive}`}
+                    >
+                      <FolderTree className="w-3 h-3 text-indigo-400 group-hover:text-white" />
+                      <span>تحلیل فولدرها</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Progress Bar */}
@@ -162,6 +191,14 @@ export default function SystemDrivesWidget() {
           <span>بروزرسانی: {lastUpdated}</span>
         )}
       </div>
+
+      {/* Full-Page Drive Tree Analyzer Modal */}
+      <DriveAnalyzerModal
+        isOpen={isAnalyzerOpen}
+        onClose={() => setIsAnalyzerOpen(false)}
+        initialDrive={selectedDriveForAnalysis}
+        availableDrives={drivesList}
+      />
     </div>
   );
 }

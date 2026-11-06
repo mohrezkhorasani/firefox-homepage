@@ -3,7 +3,8 @@ import {
   Server, KeyRound, Globe, MessageCircle, BookOpen, Bot, 
   Waves, Leaf, ShieldCheck, Zap, MessageSquare, Send, 
   HardDrive, Sparkles, Wifi, Bookmark as BookmarkIcon, 
-  Edit2, Palette, Trash2, Image as ImageIcon, X, Check
+  Edit2, Palette, Trash2, Image as ImageIcon, X, Check,
+  Wrench, Settings
 } from 'lucide-react';
 
 const LUCIDE_ICONS = {
@@ -22,6 +23,8 @@ const LUCIDE_ICONS = {
   HardDrive,
   Sparkles,
   Wifi,
+  Wrench,
+  Settings,
   Bookmark: BookmarkIcon
 };
 
@@ -36,6 +39,67 @@ export default function BookmarkGrid({
 }) {
   const [editingLogoBm, setEditingLogoBm] = useState(null);
   const [logoUrlInput, setLogoUrlInput] = useState('');
+  const [toastMessage, setToastMessage] = useState(null);
+
+  function showToast(msg) {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  }
+
+  async function handleOpenBookmark(bm, e) {
+    if (!bm || !bm.url) return;
+    const rawUrl = bm.url.trim();
+
+    // Normalize URL with https:// if no scheme
+    let finalUrl = rawUrl;
+    if (!/^(https?:\/\/|about:|chrome:\/\/|edge:\/\/|file:\/\/\/|moz-extension:\/\/|ftp:\/\/)/i.test(finalUrl)) {
+      finalUrl = 'https://' + finalUrl;
+    }
+
+    const isInternalScheme = /^(about:|chrome:\/\/|edge:\/\/)/i.test(finalUrl);
+
+    if (isInternalScheme) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      let opened = false;
+
+      // 1. Python Site IP & Network Route Service on port 23159 (Launches URL natively via Firefox process)
+      try {
+        const res = await fetch(`http://127.0.0.1:23159/api/open-url?url=${encodeURIComponent(finalUrl)}`, {
+          signal: AbortSignal.timeout(1500)
+        });
+        if (res.ok) opened = true;
+      } catch (err) {}
+
+      // 2. Windows Tools Agent on port 23157 fallback
+      if (!opened) {
+        try {
+          const res = await fetch(`http://127.0.0.1:23157/api/open-url?url=${encodeURIComponent(finalUrl)}`, {
+            signal: AbortSignal.timeout(1500)
+          });
+          if (res.ok) opened = true;
+        } catch (err) {}
+      }
+
+      if (opened) {
+        showToast(`در حال باز کردن «${finalUrl}» در تب جدید فایرفاکس...`);
+        return;
+      }
+
+      // 3. Fallback: Copy to clipboard and instruct user
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(finalUrl).then(() => {
+          showToast(`آدرس «${finalUrl}» در کلیپ‌بورد کپی شد. فایرفاکس به دلایل امنیتی لینک مستقیم به about: را مسدود می‌کند؛ لطفاً آن را در آدرس‌بار Paste کنید.`);
+        }).catch(() => {});
+      }
+    } else {
+      // Standard Web URL: Open in a clean new tab to prevent iframe X-Frame-Options embedding blocks (e.g. Bale, banks)
+      window.open(finalUrl, '_blank');
+    }
+  }
 
   const filtered = bookmarks.filter((bm) => {
     if (activeTag && activeTag !== 'all') {
@@ -60,15 +124,40 @@ export default function BookmarkGrid({
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {filtered.map((bm) => {
-          const LucideComp = LUCIDE_ICONS[bm.iconValue] || LUCIDE_ICONS[bm.fallbackIcon] || BookmarkIcon;
+          const defaultIcon = bm.url?.startsWith('about:') ? Wrench : (bm.isServer ? Server : Globe);
+          const LucideComp = LUCIDE_ICONS[bm.iconValue] || LUCIDE_ICONS[bm.fallbackIcon] || defaultIcon || BookmarkIcon;
           const customBg = bm.customBgColor || null;
 
+          const rawUrl = bm.url?.trim() || '';
+          let finalUrl = rawUrl;
+          if (!/^(https?:\/\/|about:|chrome:\/\/|edge:\/\/|file:\/\/\/|moz-extension:\/\/|ftp:\/\/)/i.test(finalUrl)) {
+            finalUrl = 'https://' + finalUrl;
+          }
+          const isInternalScheme = /^(about:|chrome:\/\/|edge:\/\/)/i.test(finalUrl);
+
           return (
-            <div
+            <a
               key={bm.id}
+              href={isInternalScheme ? '#' : finalUrl}
+              target={isInternalScheme ? '_self' : '_blank'}
+              rel="noopener noreferrer"
               style={customBg ? { backgroundColor: customBg } : {}}
-              className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-white/10 hover:border-white/30 transition text-shadow"
-              onClick={() => { window.location.href = bm.url; }}
+              className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-white/10 hover:border-white/30 transition text-shadow no-underline block"
+              onClick={(e) => {
+                if (isInternalScheme) {
+                  e.preventDefault();
+                  handleOpenBookmark(bm, e);
+                } else if (e.ctrlKey || e.metaKey) {
+                  e.preventDefault();
+                  window.open(finalUrl, '_blank');
+                }
+              }}
+              onAuxClick={(e) => {
+                if (e.button === 1 && isInternalScheme) {
+                  e.preventDefault();
+                  handleOpenBookmark(bm, e);
+                }
+              }}
               title={bm.title}
             >
               {/* Sticky Tooltip on Hover showing Full Name */}
@@ -106,12 +195,16 @@ export default function BookmarkGrid({
               {/* Hover Actions: Overlaid on the left side so title stretches to full width */}
               <div 
                 className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 z-20 bg-black/85 backdrop-blur-md px-1 py-0.5 rounded-lg border border-white/15 shadow-xl"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
                 {/* Logo Editor Icon */}
                 <button
                   type="button"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     handleOpenLogoModal(bm);
                   }}
@@ -123,7 +216,10 @@ export default function BookmarkGrid({
 
                 {/* Color Picker button */}
                 <label
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   className="p-1.5 text-gray-300 hover:text-white hover:bg-black/50 rounded cursor-pointer relative flex items-center justify-center transition"
                   title="تغییر رنگ پس‌زمینه"
                 >
@@ -131,8 +227,12 @@ export default function BookmarkGrid({
                   <input
                     type="color"
                     value={bm.customBgColor?.startsWith('#') ? bm.customBgColor : '#1e293b'}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                     onChange={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       onUpdateBookmarkColor(bm.id, e.target.value);
                     }}
@@ -144,6 +244,7 @@ export default function BookmarkGrid({
                 <button
                   type="button"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     onEditBookmark(bm);
                   }}
@@ -157,6 +258,7 @@ export default function BookmarkGrid({
                 <button
                   type="button"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     if (window.confirm(`آیا از حذف "${bm.title}" مطمئن هستید؟`)) {
                       onDeleteBookmark(bm.id);
@@ -168,7 +270,7 @@ export default function BookmarkGrid({
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
+            </a>
           );
         })}
 
@@ -254,6 +356,14 @@ export default function BookmarkGrid({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[99999] bg-slate-900/95 border border-cyan-500/40 text-cyan-200 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-medium backdrop-blur-md animate-fade-in flex items-center gap-2 max-w-md">
+          <Wrench className="w-4 h-4 text-cyan-400 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>
