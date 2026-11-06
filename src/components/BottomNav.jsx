@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Home, Wrench, Plus, X, Layers, Check } from 'lucide-react';
 import IpWidget from './IpWidget';
 import ServerPingWidget from './ServerPingWidget';
+import GithubWidget from './GithubWidget';
 import ServerExtendPanel from './ServerExtendPanel';
 import { DEFAULT_SERVERS } from '../data/defaultServers';
 import { pingHost } from '../services/pingService';
@@ -127,6 +128,9 @@ export default function BottomNav({ pages, activePage, onSelectPage, onAddPage }
   return (
     <>
       <div className="fixed bottom-0 left-0 z-40 p-2.5 bg-black/70 backdrop-blur-md border-t border-r border-white/10 rounded-tr-2xl shadow-2xl flex flex-col gap-2 w-[215px]">
+        {/* GitHub Contributions & Activities Widget */}
+        <GithubWidget />
+
         {/* Server Ping Widget directly above IP widget */}
         <ServerPingWidget
           servers={servers}

@@ -261,6 +261,8 @@ function apiProxyPlugin() {
 export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile(), pingPlugin(), apiProxyPlugin()],
   server: {
+    port: 23156,
+    host: true,
     proxy: {
       '/api/tgju': {
         target: 'https://call.tgju.org',
