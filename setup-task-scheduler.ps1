@@ -1,4 +1,7 @@
 # Setup Task Scheduler for Firefox Homepage & Windows Tools Backend Agent
+$baseDir = $PSScriptRoot
+$toolsDir = Split-Path $baseDir -Parent
+
 $service = New-Object -ComObject("Schedule.Service")
 $service.Connect()
 $rootFolder = $service.GetFolder("\")
@@ -18,13 +21,19 @@ $trigger1.UserId = "$env:USERDOMAIN\$env:USERNAME"
 
 $action1 = $taskDef1.Actions.Create(0) # TASK_ACTION_EXEC
 $action1.Path = "wscript.exe"
-$action1.Arguments = "`"D:\tools\firefox\firefox-homepage\AutoRunner.vbs`""
-$action1.WorkingDirectory = "D:\tools\firefox\firefox-homepage"
+$action1.Arguments = "`"$baseDir\AutoRunner.vbs`""
+$action1.WorkingDirectory = "$baseDir"
 
 $t1 = $rootFolder.RegisterTaskDefinition("FirefoxHomepageServer", $taskDef1, 6, "$env:USERDOMAIN\$env:USERNAME", $null, 3)
 Write-Host " [OK] Registered: $($t1.Name)" -ForegroundColor Green
 
 Write-Host "Registering WindowsToolsBackendAgent..." -ForegroundColor Cyan
+$agentDir = Join-Path $toolsDir "win-agent"
+$agentBat = Join-Path $agentDir "start-agent.bat"
+if (-not (Test-Path $agentBat)) {
+    $agentBat = Join-Path $baseDir "win-agent\start-agent.bat"
+}
+
 $taskDef2 = $service.NewTask(0)
 $taskDef2.RegistrationInfo.Description = "Windows Tools Backend Agent for Firefox Homepage (Port 23157)"
 $taskDef2.Settings.Enabled = $true
@@ -38,8 +47,8 @@ $trigger2 = $taskDef2.Triggers.Create(9)
 $trigger2.UserId = "$env:USERDOMAIN\$env:USERNAME"
 
 $action2 = $taskDef2.Actions.Create(0)
-$action2.Path = "D:\tools\firefox\firefox-homepage\win-agent\start-agent.bat"
-$action2.WorkingDirectory = "D:\tools\firefox\firefox-homepage\win-agent"
+$action2.Path = "$agentBat"
+$action2.WorkingDirectory = (Split-Path $agentBat -Parent)
 
 $t2 = $rootFolder.RegisterTaskDefinition("WindowsToolsBackendAgent", $taskDef2, 6, "$env:USERDOMAIN\$env:USERNAME", $null, 3)
 Write-Host " [OK] Registered: $($t2.Name)" -ForegroundColor Green
@@ -47,4 +56,6 @@ Write-Host " [OK] Registered: $($t2.Name)" -ForegroundColor Green
 Write-Host "Starting tasks..." -ForegroundColor Cyan
 Start-ScheduledTask -TaskName "FirefoxHomepageServer"
 Start-ScheduledTask -TaskName "WindowsToolsBackendAgent"
+Start-ScheduledTask -TaskName "Mohrez - Site IP Inspector Service" -ErrorAction SilentlyContinue
+Start-ScheduledTask -TaskName "Mohrez - Windows Autofill Palette" -ErrorAction SilentlyContinue
 Write-Host "All tasks registered and started successfully!" -ForegroundColor Green

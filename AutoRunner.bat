@@ -1,3 +1,3 @@
 @echo off
 cd /d "%~dp0"
-call npm run dev -- --port 23156 --host
+"C:\Program Files\nodejs\node.exe" "node_modules\vite\bin\vite.js" --port 23156 --host
