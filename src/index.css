@@ -10,7 +10,7 @@
 }
 
 .glass {
-  background: rgba(15, 23, 42, 0.72);
+  background: var(--card-bg, rgba(15, 23, 42, 0.72));
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease-in-out;
@@ -18,7 +18,7 @@
 
 /* On hover: brighten/saturate and increase opacity instead of dimming */
 .glass:hover {
-  background: rgba(30, 41, 59, 0.95);
+  background: var(--card-hover-bg, rgba(30, 41, 59, 0.95));
   border-color: rgba(255, 255, 255, 0.4);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 255, 255, 0.15);
   filter: brightness(1.15) saturate(1.15);

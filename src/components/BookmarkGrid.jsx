@@ -4,7 +4,7 @@ import {
   Waves, Leaf, ShieldCheck, Zap, MessageSquare, Send, 
   HardDrive, Sparkles, Wifi, Bookmark as BookmarkIcon, 
   Edit2, Palette, Trash2, Image as ImageIcon, X, Check,
-  Wrench, Settings
+  Wrench, Settings, RotateCcw
 } from 'lucide-react';
 
 const LUCIDE_ICONS = {
@@ -28,6 +28,44 @@ const LUCIDE_ICONS = {
   Bookmark: BookmarkIcon
 };
 
+function normalizeHex(input) {
+  if (!input) return '';
+  let str = input.trim();
+  if (!str.startsWith('#') && !str.startsWith('rgb') && !str.startsWith('hsl')) {
+    str = '#' + str;
+  }
+  return str;
+}
+
+function isValidColor(color) {
+  if (!color) return false;
+  // Match #rgb, #rgba, #rrggbb, #rrggbbaa
+  const isHex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color);
+  if (isHex) return true;
+  // Match rgb(...) or rgba(...)
+  if (/^rgba?\(.+\)$/i.test(color)) return true;
+  return false;
+}
+
+const PRESET_COLORS = [
+  { name: 'اسلیت پیش‌فرض', hex: '#1e293b' },
+  { name: 'نفتی تیره', hex: '#0f172a' },
+  { name: 'کربن مشکی', hex: '#111827' },
+  { name: 'آبی رویال', hex: '#2563eb' },
+  { name: 'آبی اقیانوسی', hex: '#0284c7' },
+  { name: 'فیروزه‌ای', hex: '#0d9488' },
+  { name: 'زمردی', hex: '#059669' },
+  { name: 'سبز تیره', hex: '#065f46' },
+  { name: 'کهربایی', hex: '#d97706' },
+  { name: 'نارنجی پررنگ', hex: '#ea580c' },
+  { name: 'رز قرمز', hex: '#e11d48' },
+  { name: 'قرمز پویان', hex: '#b91c1c' },
+  { name: 'سرخابی', hex: '#c026d3' },
+  { name: 'بنفش سایبر', hex: '#7c3aed' },
+  { name: 'نیلی کبالت', hex: '#4338ca' },
+  { name: 'خاکستری سرد', hex: '#374151' }
+];
+
 export default function BookmarkGrid({ 
   bookmarks, 
   activeTag, 
@@ -39,7 +77,29 @@ export default function BookmarkGrid({
 }) {
   const [editingLogoBm, setEditingLogoBm] = useState(null);
   const [logoUrlInput, setLogoUrlInput] = useState('');
+  const [editingColorBm, setEditingColorBm] = useState(null);
+  const [hexColorInput, setHexColorInput] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
+
+  function handleOpenColorModal(bm) {
+    setEditingColorBm(bm);
+    setHexColorInput(bm.customBgColor || '#1e293b');
+  }
+
+  function handleSaveColor(e) {
+    e.preventDefault();
+    if (!editingColorBm) return;
+    const trimmed = hexColorInput.trim();
+    if (!trimmed) {
+      onUpdateBookmarkColor(editingColorBm.id, null);
+      showToast(`رنگ «${editingColorBm.title}» به حالت پیش‌فرض بازگشت.`);
+    } else {
+      const normalized = normalizeHex(trimmed);
+      onUpdateBookmarkColor(editingColorBm.id, normalized);
+      showToast(`رنگ «${editingColorBm.title}» تنظیم شد.`);
+    }
+    setEditingColorBm(null);
+  }
 
   function showToast(msg) {
     setToastMessage(msg);
@@ -141,8 +201,8 @@ export default function BookmarkGrid({
               href={isInternalScheme ? '#' : finalUrl}
               target={isInternalScheme ? '_self' : '_blank'}
               rel="noopener noreferrer"
-              style={customBg ? { backgroundColor: customBg } : {}}
-              className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-white/10 hover:border-white/30 transition text-shadow no-underline block"
+              style={customBg ? { backgroundColor: customBg, '--card-bg': customBg, '--card-hover-bg': customBg } : {}}
+              className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-[#ffffff]/10 hover:border-[#ffffff]/30 transition text-shadow no-underline block"
               onClick={(e) => {
                 if (isInternalScheme) {
                   e.preventDefault();
@@ -215,30 +275,18 @@ export default function BookmarkGrid({
                 </button>
 
                 {/* Color Picker button */}
-                <label
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    handleOpenColorModal(bm);
                   }}
-                  className="p-1.5 text-gray-300 hover:text-white hover:bg-black/50 rounded cursor-pointer relative flex items-center justify-center transition"
+                  className="p-1.5 text-[#d1d5db] hover:text-[#ffffff] hover:bg-[#000000]/50 rounded transition"
                   title="تغییر رنگ پس‌زمینه"
                 >
                   <Palette className="w-3.5 h-3.5" />
-                  <input
-                    type="color"
-                    value={bm.customBgColor?.startsWith('#') ? bm.customBgColor : '#1e293b'}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onUpdateBookmarkColor(bm.id, e.target.value);
-                    }}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full pointer-events-auto"
-                  />
-                </label>
+                </button>
 
                 {/* Edit Pencil */}
                 <button
@@ -284,6 +332,174 @@ export default function BookmarkGrid({
           <span>افزودن سایت</span>
         </button>
       </div>
+
+      {/* Edit Background Color Modal */}
+      {editingColorBm && (() => {
+        const normalized = normalizeHex(hexColorInput);
+        const valid = isValidColor(normalized);
+        const displayColor = valid ? normalized : (editingColorBm.customBgColor || '#1e293b');
+        const pickerColor = (valid && normalized.startsWith('#') && normalized.length >= 7)
+          ? normalized.slice(0, 7)
+          : (editingColorBm.customBgColor?.startsWith('#') && editingColorBm.customBgColor.length >= 7 ? editingColorBm.customBgColor.slice(0, 7) : '#1e293b');
+
+        const defaultIcon = editingColorBm.url?.startsWith('about:') ? Wrench : (editingColorBm.isServer ? Server : Globe);
+        const PreviewLucide = LUCIDE_ICONS[editingColorBm.iconValue] || LUCIDE_ICONS[editingColorBm.fallbackIcon] || defaultIcon || BookmarkIcon;
+
+        return (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#000000]/75 backdrop-blur-sm"
+            onClick={() => setEditingColorBm(null)}
+          >
+            <div 
+              className="glass rounded-2xl p-5 w-full max-w-sm border border-[#ffffff]/20 shadow-2xl relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#ffffff]/10 mb-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-[#ffffff]">
+                  <Palette className="w-4 h-4 text-[#38bdf8]" />
+                  <span>تغییر رنگ پس‌زمینه</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingColorBm(null)}
+                  className="p-1 text-[#9ca3af] hover:text-[#ffffff] rounded transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveColor} className="space-y-4">
+                {/* Live Preview Card */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#d1d5db] mb-1.5">
+                    پیش‌نمایش زنده بوکمارک:
+                  </label>
+                  <div 
+                    className="flex items-center gap-3 p-3 rounded-xl border border-[#ffffff]/25 shadow-lg transition-all"
+                    style={{ backgroundColor: displayColor }}
+                  >
+                    <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
+                      {editingColorBm.iconType === 'image' && editingColorBm.iconValue ? (
+                        <img
+                          src={editingColorBm.iconValue}
+                          alt={editingColorBm.title}
+                          className="w-6 h-6 object-contain"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <PreviewLucide className="w-5 h-5 text-[#38bdf8]" />
+                      )}
+                    </div>
+                    <span className="font-bold text-xs sm:text-sm text-[#ffffff] flex-1 truncate">
+                      {editingColorBm.title}
+                    </span>
+                    <span className="text-[10px] font-mono text-[#ffffff]/90 bg-[#000000]/40 px-2 py-0.5 rounded border border-[#ffffff]/15">
+                      {valid ? normalized : 'پیش‌فرض'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Hex Input and Native Picker */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#d1d5db] mb-1.5">
+                    کد هگز (Hex) یا انتخاب آزاد رنگ:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {/* Native Picker Swatch */}
+                    <div 
+                      className="relative w-11 h-9 rounded-xl border border-[#ffffff]/25 shadow-inner flex items-center justify-center cursor-pointer hover:border-[#38bdf8] transition overflow-hidden shrink-0 group"
+                      style={{ backgroundColor: pickerColor }}
+                      title="کلیک برای باز شدن جعبه رنگ ویندوز/مرورگر"
+                    >
+                      <input
+                        type="color"
+                        value={pickerColor}
+                        onChange={(e) => setHexColorInput(e.target.value)}
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                      />
+                      <Palette className="w-4 h-4 text-[#ffffff] drop-shadow pointer-events-none group-hover:scale-110 transition" />
+                    </div>
+
+                    {/* Hex Code Text Input */}
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="#1e293b"
+                      value={hexColorInput}
+                      onChange={(e) => setHexColorInput(e.target.value)}
+                      className="flex-1 bg-[#000000]/40 border border-[#ffffff]/15 rounded-xl px-3 py-2 text-xs text-[#ffffff] focus:outline-none focus:border-[#38bdf8] font-mono transition"
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#9ca3af] mt-1">
+                    می‌توانید کد هگز مثل <span className="font-mono text-[#38bdf8]">#2563eb</span> را دستی تایپ کرده یا روی پالت کلیک کنید.
+                  </p>
+                </div>
+
+                {/* Quick Presets */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#d1d5db] mb-1.5">
+                    پالت رنگ‌های پیشنهادی:
+                  </label>
+                  <div className="grid grid-cols-8 gap-1.5">
+                    {PRESET_COLORS.map((preset) => {
+                      const isSelected = normalized.toLowerCase() === preset.hex.toLowerCase();
+                      return (
+                        <button
+                          key={preset.hex}
+                          type="button"
+                          onClick={() => setHexColorInput(preset.hex)}
+                          style={{ backgroundColor: preset.hex }}
+                          className={`w-full h-7 rounded-lg border transition transform hover:scale-110 ${
+                            isSelected
+                              ? 'border-[#ffffff] ring-2 ring-[#38bdf8] scale-105'
+                              : 'border-[#ffffff]/20 hover:border-[#ffffff]/60'
+                          }`}
+                          title={`${preset.name} (${preset.hex})`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-center justify-between pt-2 border-t border-[#ffffff]/10">
+                  {/* Reset to Default */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateBookmarkColor(editingColorBm.id, null);
+                      showToast(`رنگ «${editingColorBm.title}» به حالت پیش‌فرض بازگشت.`);
+                      setEditingColorBm(null);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#f87171] hover:bg-[#ef4444]/15 border border-[#ef4444]/30 transition flex items-center gap-1"
+                    title="حذف رنگ اختصاصی و بازگشت به حالت شیشه‌ای شفاف"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    حذف رنگ
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingColorBm(null)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#d1d5db] hover:bg-[#ffffff]/10 transition"
+                    >
+                      انصراف
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#2563eb] hover:bg-[#1d4ed8] text-[#ffffff] transition flex items-center gap-1 shadow-lg shadow-[#2563eb]/30"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      ثبت رنگ
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit Logo Modal */}
       {editingLogoBm && (

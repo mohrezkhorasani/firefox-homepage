@@ -106,10 +106,16 @@ export default function BookmarkModal({
       finalUrl = 'https://' + finalUrl;
     }
 
+    let customColor = formData.customBgColor?.trim() || null;
+    if (customColor && !customColor.startsWith('#') && !customColor.startsWith('rgb')) {
+      customColor = '#' + customColor;
+    }
+
     onSave({
       ...formData,
       id: bookmark?.id || 'bm_' + Date.now(),
       url: finalUrl,
+      customBgColor: customColor,
       isExtension: Boolean(formData.isExtension),
       isEnabled: formData.isEnabled !== false
     });
@@ -235,6 +241,51 @@ export default function BookmarkModal({
                 );
               })}
             </div>
+          </div>
+
+          {/* Custom Hex Background Color */}
+          <div>
+            <label className="block text-xs font-semibold text-[#d1d5db] mb-1.5 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Palette className="w-3.5 h-3.5 text-[#38bdf8]" />
+                رنگ پس‌زمینه اختصاصی (کد Hex یا کالرپیکر):
+              </span>
+              {formData.customBgColor && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, customBgColor: null })}
+                  className="text-[10px] text-[#f87171] hover:underline"
+                >
+                  حذف رنگ اختصاصی
+                </button>
+              )}
+            </label>
+            <div className="flex items-center gap-2">
+              <div 
+                className="relative w-11 h-9 rounded-xl border border-[#ffffff]/25 shadow-inner flex items-center justify-center cursor-pointer hover:border-[#38bdf8] transition overflow-hidden shrink-0 group"
+                style={{ backgroundColor: formData.customBgColor || '#1e293b' }}
+                title="کلیک برای باز شدن جعبه رنگ ویندوز/مرورگر"
+              >
+                <input
+                  type="color"
+                  value={formData.customBgColor?.startsWith('#') && formData.customBgColor.length >= 7 ? formData.customBgColor.slice(0, 7) : '#1e293b'}
+                  onChange={(e) => setFormData({ ...formData, customBgColor: e.target.value })}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                />
+                <Palette className="w-4 h-4 text-[#ffffff] drop-shadow pointer-events-none group-hover:scale-110 transition" />
+              </div>
+              <input
+                type="text"
+                dir="ltr"
+                placeholder="#1e293b (اختیاری)"
+                value={formData.customBgColor || ''}
+                onChange={(e) => setFormData({ ...formData, customBgColor: e.target.value })}
+                className="flex-1 bg-[#000000]/40 border border-[#ffffff]/15 rounded-xl px-3 py-2 text-xs text-[#ffffff] focus:outline-none focus:border-[#38bdf8] font-mono transition"
+              />
+            </div>
+            <span className="text-[10px] text-[#9ca3af] mt-1 block">
+              می‌توانید کد هگز مثل <code className="text-[#38bdf8] font-mono">#2563eb</code> یا <code className="text-[#38bdf8] font-mono">#10b981</code> وارد کنید یا از پالت بالا رنگ بردارید.
+            </span>
           </div>
 
           {/* Icon URL */}
