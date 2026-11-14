@@ -4,7 +4,7 @@ import {
   Waves, Leaf, ShieldCheck, Zap, MessageSquare, Send, 
   HardDrive, Sparkles, Wifi, Bookmark as BookmarkIcon, 
   Edit2, Palette, Trash2, Image as ImageIcon, X, Check,
-  Wrench, Settings, RotateCcw
+  Wrench, Settings, RotateCcw, GripVertical
 } from 'lucide-react';
 
 const LUCIDE_ICONS = {
@@ -73,13 +73,16 @@ export default function BookmarkGrid({
   onAddNew,
   onDeleteBookmark,
   onUpdateBookmarkColor,
-  onUpdateBookmarkLogo
+  onUpdateBookmarkLogo,
+  onReorderBookmarks
 }) {
   const [editingLogoBm, setEditingLogoBm] = useState(null);
   const [logoUrlInput, setLogoUrlInput] = useState('');
   const [editingColorBm, setEditingColorBm] = useState(null);
   const [hexColorInput, setHexColorInput] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
+  const [draggedId, setDraggedId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
 
   function handleOpenColorModal(bm) {
     setEditingColorBm(bm);
@@ -180,6 +183,53 @@ export default function BookmarkGrid({
     setEditingLogoBm(null);
   }
 
+  function handleDragStart(e, bm) {
+    setDraggedId(bm.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', bm.id);
+  }
+
+  function handleDragOver(e, bm) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedId && draggedId !== bm.id && dragOverId !== bm.id) {
+      setDragOverId(bm.id);
+    }
+  }
+
+  function handleDragLeave(e, bm) {
+    if (dragOverId === bm.id) {
+      setDragOverId(null);
+    }
+  }
+
+  function handleDrop(e, targetBm) {
+    e.preventDefault();
+    setDragOverId(null);
+    if (!draggedId || draggedId === targetBm.id) {
+      setDraggedId(null);
+      return;
+    }
+
+    // Reorder in bookmarks list
+    const sourceIdx = bookmarks.findIndex((b) => b.id === draggedId);
+    const targetIdx = bookmarks.findIndex((b) => b.id === targetBm.id);
+    if (sourceIdx !== -1 && targetIdx !== -1) {
+      const nextBookmarks = [...bookmarks];
+      const [movedItem] = nextBookmarks.splice(sourceIdx, 1);
+      nextBookmarks.splice(targetIdx, 0, movedItem);
+      if (onReorderBookmarks) {
+        onReorderBookmarks(nextBookmarks);
+      }
+    }
+    setDraggedId(null);
+  }
+
+  function handleDragEnd() {
+    setDraggedId(null);
+    setDragOverId(null);
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -195,130 +245,160 @@ export default function BookmarkGrid({
           }
           const isInternalScheme = /^(about:|chrome:\/\/|edge:\/\/)/i.test(finalUrl);
 
+          const isDragging = draggedId === bm.id;
+          const isOver = dragOverId === bm.id;
+
           return (
-            <a
+            <div
               key={bm.id}
-              href={isInternalScheme ? '#' : finalUrl}
-              target={isInternalScheme ? '_self' : '_blank'}
-              rel="noopener noreferrer"
-              style={customBg ? { backgroundColor: customBg, '--card-bg': customBg, '--card-hover-bg': customBg } : {}}
-              className="glass flex items-center p-3 rounded-xl gap-3 group relative cursor-pointer border border-[#ffffff]/10 hover:border-[#ffffff]/30 transition text-shadow no-underline block"
-              onClick={(e) => {
-                if (isInternalScheme) {
-                  e.preventDefault();
-                  handleOpenBookmark(bm, e);
-                } else if (e.ctrlKey || e.metaKey) {
-                  e.preventDefault();
-                  window.open(finalUrl, '_blank');
-                }
-              }}
-              onAuxClick={(e) => {
-                if (e.button === 1 && isInternalScheme) {
-                  e.preventDefault();
-                  handleOpenBookmark(bm, e);
-                }
-              }}
-              title={bm.title}
+              draggable
+              onDragStart={(e) => handleDragStart(e, bm)}
+              onDragOver={(e) => handleDragOver(e, bm)}
+              onDragLeave={(e) => handleDragLeave(e, bm)}
+              onDrop={(e) => handleDrop(e, bm)}
+              onDragEnd={handleDragEnd}
+              className={`relative transition-all duration-200 select-none ${
+                isDragging ? 'opacity-30 scale-95' : 'opacity-100'
+              } ${
+                isOver ? 'ring-2 ring-[#38bdf8] scale-[1.02] shadow-xl shadow-[#38bdf8]/20' : ''
+              }`}
             >
-              {/* Sticky Tooltip on Hover showing Full Name */}
-              <div 
-                className="absolute -top-8 right-2 max-w-[240px] pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-30 px-2.5 py-1 rounded-lg bg-black/95 text-white text-xs font-bold shadow-2xl border border-cyan-400/50 whitespace-nowrap overflow-hidden text-ellipsis text-right"
-              >
-                {bm.title}
-              </div>
-
-              {/* Site Icon */}
-              <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
-                {bm.iconType === 'image' && bm.iconValue ? (
-                  <img
-                    src={bm.iconValue}
-                    alt={bm.title}
-                    className="site-icon w-6 h-6 object-contain"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                ) : bm.iconType === 'fontawesome' && bm.iconValue ? (
-                  <i className={`${bm.iconValue} text-lg`} />
-                ) : (
-                  <LucideComp className="w-5 h-5 text-cyan-300" />
-                )}
-                <LucideComp className="w-5 h-5 text-cyan-300 hidden" />
-              </div>
-
-              {/* Title: Full width, displays complete title without truncation */}
-              <span className="font-bold text-xs sm:text-sm text-white flex-1 leading-snug break-words">
-                {bm.title}
-              </span>
-
-              {/* Hover Actions: Overlaid on the left side so title stretches to full width */}
-              <div 
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 z-20 bg-black/85 backdrop-blur-md px-1 py-0.5 rounded-lg border border-white/15 shadow-xl"
+              <a
+                href={isInternalScheme ? '#' : finalUrl}
+                target={isInternalScheme ? '_self' : '_blank'}
+                rel="noopener noreferrer"
+                draggable={false}
+                style={customBg ? { backgroundColor: customBg, '--card-bg': customBg, '--card-hover-bg': customBg } : {}}
+                className="glass flex items-center p-3 rounded-xl gap-2.5 group relative cursor-pointer border border-[#ffffff]/10 hover:border-[#ffffff]/30 transition text-shadow no-underline block"
                 onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
+                  if (isInternalScheme) {
+                    e.preventDefault();
+                    handleOpenBookmark(bm, e);
+                  } else if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    window.open(finalUrl, '_blank');
+                  }
                 }}
+                onAuxClick={(e) => {
+                  if (e.button === 1 && isInternalScheme) {
+                    e.preventDefault();
+                    handleOpenBookmark(bm, e);
+                  }
+                }}
+                title={bm.title}
               >
-                {/* Logo Editor Icon */}
-                <button
-                  type="button"
+                {/* Drag Handle Indicator */}
+                <div 
+                  className="w-3.5 h-6 -mr-1 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab active:cursor-grabbing text-[#9ca3af] transition"
+                  title="درگ برای جابه‌جایی"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleOpenLogoModal(bm);
                   }}
-                  className="p-1.5 text-gray-300 hover:text-white hover:bg-black/50 rounded transition"
-                  title="تغییر آیکون / لوگو"
                 >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                </button>
+                  <GripVertical className="w-3.5 h-3.5" />
+                </div>
 
-                {/* Color Picker button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleOpenColorModal(bm);
-                  }}
-                  className="p-1.5 text-[#d1d5db] hover:text-[#ffffff] hover:bg-[#000000]/50 rounded transition"
-                  title="تغییر رنگ پس‌زمینه"
+                {/* Sticky Tooltip on Hover showing Full Name */}
+                <div 
+                  className="absolute -top-8 right-2 max-w-[240px] pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-30 px-2.5 py-1 rounded-lg bg-black/95 text-white text-xs font-bold shadow-2xl border border-cyan-400/50 whitespace-nowrap overflow-hidden text-ellipsis text-right"
                 >
-                  <Palette className="w-3.5 h-3.5" />
-                </button>
+                  {bm.title}
+                </div>
 
-                {/* Edit Pencil */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onEditBookmark(bm);
-                  }}
-                  className="p-1.5 text-gray-300 hover:text-white hover:bg-black/50 rounded transition"
-                  title="ویرایش مشخصات سایت"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
+                {/* Site Icon */}
+                <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center pointer-events-none">
+                  {bm.iconType === 'image' && bm.iconValue ? (
+                    <img
+                      src={bm.iconValue}
+                      alt={bm.title}
+                      className="site-icon w-6 h-6 object-contain pointer-events-none"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : bm.iconType === 'fontawesome' && bm.iconValue ? (
+                    <i className={`${bm.iconValue} text-lg`} />
+                  ) : (
+                    <LucideComp className="w-5 h-5 text-cyan-300" />
+                  )}
+                  <LucideComp className="w-5 h-5 text-cyan-300 hidden" />
+                </div>
 
-                {/* Delete Trash */}
-                <button
-                  type="button"
+                {/* Title: Full width, displays complete title without truncation */}
+                <span className="font-bold text-xs sm:text-sm text-white flex-1 leading-snug break-words pointer-events-none">
+                  {bm.title}
+                </span>
+
+                {/* Hover Actions: Overlaid on the left side so title stretches to full width */}
+                <div 
+                  className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center gap-0.5 z-20 bg-black/85 backdrop-blur-md px-1 py-0.5 rounded-lg border border-white/15 shadow-xl"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (window.confirm(`آیا از حذف "${bm.title}" مطمئن هستید؟`)) {
-                      onDeleteBookmark(bm.id);
-                    }
                   }}
-                  className="p-1.5 text-red-400 hover:text-red-300 hover:bg-black/50 rounded transition"
-                  title="حذف سایت"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </a>
+                  {/* Logo Editor Icon */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenLogoModal(bm);
+                    }}
+                    className="p-1.5 text-gray-300 hover:text-white hover:bg-black/50 rounded transition"
+                    title="تغییر آیکون / لوگو"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Color Picker button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenColorModal(bm);
+                    }}
+                    className="p-1.5 text-[#d1d5db] hover:text-[#ffffff] hover:bg-[#000000]/50 rounded transition"
+                    title="تغییر رنگ پس‌زمینه"
+                  >
+                    <Palette className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Edit Pencil */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onEditBookmark(bm);
+                    }}
+                    className="p-1.5 text-gray-300 hover:text-white hover:bg-black/50 rounded transition"
+                    title="ویرایش مشخصات سایت"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Delete Trash */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (window.confirm(`آیا از حذف "${bm.title}" مطمئن هستید؟`)) {
+                        onDeleteBookmark(bm.id);
+                      }
+                    }}
+                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-black/50 rounded transition"
+                    title="حذف سایت"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </a>
+            </div>
           );
         })}
 

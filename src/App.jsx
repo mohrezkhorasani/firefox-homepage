@@ -137,6 +137,17 @@ export default function App() {
     );
   }
 
+  function handleReorderBookmarks(reorderedPageBookmarks) {
+    setBookmarks((prev) => {
+      // Find the IDs of the items being reordered for this page
+      const reorderedIds = new Set(reorderedPageBookmarks.map(b => b.id));
+      // All other bookmarks from other pages
+      const otherBookmarks = prev.filter(b => !reorderedIds.has(b.id));
+      // Merge keeping new order for the current page
+      return [...reorderedPageBookmarks, ...otherBookmarks];
+    });
+  }
+
   function openAddModal() {
     setEditingBookmark(null);
     setIsModalOpen(true);
@@ -209,6 +220,7 @@ export default function App() {
                   onDeleteBookmark={handleDeleteBookmark}
                   onUpdateBookmarkColor={handleUpdateBookmarkColor}
                   onUpdateBookmarkLogo={handleUpdateBookmarkLogo}
+                  onReorderBookmarks={handleReorderBookmarks}
                 />
               </div>
 
