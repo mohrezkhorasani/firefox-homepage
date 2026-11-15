@@ -1,32 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Globe, ExternalLink, Trash2, Edit2, Check } from 'lucide-react';
+import { Plus, X, Globe, Trash2, Edit2, Check } from 'lucide-react';
 import { ICON_158 } from '../data/icon158';
 
-const STORAGE_KEY = 'homepage_quick_apps_v1';
+const STORAGE_KEY = 'homepage_quick_apps_v2';
 
-// Initial default links specified by user
 const DEFAULT_QUICK_APPS = [
   {
     id: 'app_1',
-    title: 'حکمت مدیا',
     url: 'http://192.168.0.158:1532/',
     icon: ICON_158
   },
   {
     id: 'app_2',
-    title: 'اتوماسیون',
     url: 'http://192.168.0.4:1940/',
     icon: ''
   },
   {
     id: 'app_3',
-    title: 'پایان‌نامه‌ها',
     url: 'http://192.168.0.4:1930/',
     icon: ''
   },
   {
     id: 'app_4',
-    title: 'آموزش',
     url: 'http://192.168.0.4:1930/education',
     icon: ''
   }
@@ -38,7 +33,19 @@ export default function QuickAppsGrid() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      // Migrate from v1 if present
+      const oldV1 = localStorage.getItem('homepage_quick_apps_v1');
+      if (oldV1) {
+        const parsed = JSON.parse(oldV1);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(a => ({
+            id: a.id,
+            url: a.url,
+            icon: a.id === 'app_1' ? ICON_158 : (a.icon || '')
+          }));
+        }
       }
     } catch {}
     return DEFAULT_QUICK_APPS;
@@ -46,7 +53,6 @@ export default function QuickAppsGrid() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingApp, setEditingApp] = useState(null);
-  const [formTitle, setFormTitle] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [formIcon, setFormIcon] = useState('');
   const [imgErrors, setImgErrors] = useState({});
@@ -59,7 +65,6 @@ export default function QuickAppsGrid() {
 
   function openAddModal() {
     setEditingApp(null);
-    setFormTitle('');
     setFormUrl('');
     setFormIcon('');
     setIsModalOpen(true);
@@ -71,7 +76,6 @@ export default function QuickAppsGrid() {
       e.stopPropagation();
     }
     setEditingApp(app);
-    setFormTitle(app.title || '');
     setFormUrl(app.url || '');
     setFormIcon(app.icon || '');
     setIsModalOpen(true);
@@ -94,21 +98,19 @@ export default function QuickAppsGrid() {
       finalUrl = 'http://' + finalUrl;
     }
 
-    const title = formTitle.trim() || new URL(finalUrl).hostname;
     const icon = formIcon.trim();
 
     if (editingApp) {
       setApps((prev) =>
         prev.map((a) =>
           a.id === editingApp.id
-            ? { ...a, title, url: finalUrl, icon }
+            ? { ...a, url: finalUrl, icon }
             : a
         )
       );
     } else {
       const newApp = {
         id: 'app_' + Date.now(),
-        title,
         url: finalUrl,
         icon
       };
@@ -128,24 +130,9 @@ export default function QuickAppsGrid() {
   }
 
   return (
-    <div className="w-full bg-[#000000]/50 backdrop-blur-md border border-[#ffffff]/10 rounded-xl p-2 shadow-lg">
-      <div className="flex items-center justify-between px-1 mb-1.5">
-        <span className="text-[11px] font-bold text-[#9ca3af] flex items-center gap-1">
-          <Globe className="w-3 h-3 text-[#38bdf8]" />
-          <span>سایت‌های پرکاربرد</span>
-        </span>
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="p-1 rounded-md text-[#9ca3af] hover:text-[#38bdf8] hover:bg-[#ffffff]/10 transition"
-          title="افزودن سایت پرکاربرد"
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {/* 4 Columns Grid */}
-      <div className="grid grid-cols-4 gap-1.5">
+    <div className="w-full">
+      {/* 4 Columns Minimalist Grid - No Background Card, Icons Only */}
+      <div className="grid grid-cols-4 gap-2 items-center justify-items-center">
         {apps.map((app) => {
           const hasCustomIcon = Boolean(app.icon);
           const fallbackFavicon = getFallbackIconUrl(app.url);
@@ -153,38 +140,38 @@ export default function QuickAppsGrid() {
           const isFailed = imgErrors[app.id];
 
           return (
-            <div key={app.id} className="relative group">
+            <div key={app.id} className="relative group flex items-center justify-center">
               <a
                 href={app.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={`${app.title}\n${app.url}`}
-                className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-[#ffffff]/5 hover:bg-[#ffffff]/15 border border-[#ffffff]/5 hover:border-[#38bdf8]/40 transition aspect-square"
+                title={app.url}
+                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
               >
-                <div className="w-7 h-7 rounded-md flex items-center justify-center overflow-hidden bg-[#000000]/30 shadow-inner">
-                  {!isFailed && iconSrc ? (
-                    <img
-                      src={iconSrc}
-                      alt={app.title}
-                      className="w-full h-full object-contain p-0.5"
-                      onError={() => {
-                        setImgErrors((prev) => ({ ...prev, [app.id]: true }));
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-[#0284c7]/20 text-[#38bdf8] text-[10px] font-bold">
-                      {app.title ? app.title.charAt(0).toUpperCase() : <Globe className="w-3.5 h-3.5" />}
-                    </div>
-                  )}
-                </div>
-                <span className="text-[10px] text-[#e5e7eb] font-medium truncate w-full text-center mt-1 leading-tight">
-                  {app.title}
-                </span>
+                {!isFailed && iconSrc ? (
+                  <img
+                    src={iconSrc}
+                    alt={app.url}
+                    className="w-7 h-7 object-contain drop-shadow transition-transform"
+                    onError={() => {
+                      setImgErrors((prev) => ({ ...prev, [app.id]: true }));
+                    }}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#ffffff]/10 hover:bg-[#ffffff]/20 border border-[#ffffff]/15 text-[#38bdf8] transition">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                )}
               </a>
 
-              {/* Hover Actions overlay */}
+              {/* URL Tooltip on hover */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded-md bg-[#000000]/95 text-[#ffffff] text-[10px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-30 border border-[#ffffff]/15 shadow-xl">
+                {app.url}
+              </div>
+
+              {/* Hover Actions (Edit / Delete) */}
               <div 
-                className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-[#000000]/90 rounded-md p-0.5 border border-[#ffffff]/20 shadow-md z-10"
+                className="absolute -top-1.5 -right-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-[#000000]/95 rounded-md p-0.5 border border-[#ffffff]/20 shadow-lg z-20"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -194,7 +181,7 @@ export default function QuickAppsGrid() {
                   type="button"
                   onClick={(e) => openEditModal(app, e)}
                   className="p-0.5 text-[#9ca3af] hover:text-[#ffffff] rounded"
-                  title="ویرایش"
+                  title="ویرایش آدرس"
                 >
                   <Edit2 className="w-2.5 h-2.5" />
                 </button>
@@ -211,15 +198,16 @@ export default function QuickAppsGrid() {
           );
         })}
 
-        {/* Add Card if empty or quick add slot */}
+        {/* Minimal Add Icon Button */}
         <button
           type="button"
           onClick={openAddModal}
-          className="flex flex-col items-center justify-center p-1.5 rounded-lg border border-dashed border-[#ffffff]/15 hover:border-[#38bdf8]/50 text-[#9ca3af] hover:text-[#38bdf8] hover:bg-[#ffffff]/5 transition aspect-square"
-          title="افزودن سایت"
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-[#9ca3af] hover:text-[#38bdf8] hover:scale-110 active:scale-95 transition-all"
+          title="افزودن سایت جدید"
         >
-          <Plus className="w-4 h-4 mb-0.5" />
-          <span className="text-[9px]">افزودن</span>
+          <div className="w-7 h-7 rounded-xl border border-dashed border-[#ffffff]/25 hover:border-[#38bdf8] flex items-center justify-center">
+            <Plus className="w-3.5 h-3.5" />
+          </div>
         </button>
       </div>
 
@@ -236,7 +224,7 @@ export default function QuickAppsGrid() {
             <div className="flex items-center justify-between pb-2 border-b border-[#ffffff]/10 mb-3">
               <span className="text-xs font-bold text-[#ffffff] flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5 text-[#38bdf8]" />
-                <span>{editingApp ? 'ویرایش سایت پرکاربرد' : 'افزودن سایت پرکاربرد'}</span>
+                <span>{editingApp ? 'ویرایش آدرس' : 'افزودن آدرس'}</span>
               </span>
               <button
                 type="button"
@@ -265,20 +253,7 @@ export default function QuickAppsGrid() {
 
               <div>
                 <label className="block text-[11px] font-semibold text-[#d1d5db] mb-1">
-                  عنوان / نام نمایشی:
-                </label>
-                <input
-                  type="text"
-                  placeholder="مثلاً: اتوماسیون اداری"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full bg-[#000000]/40 border border-[#ffffff]/15 rounded-xl px-2.5 py-1.5 text-xs text-[#ffffff] focus:outline-none focus:border-[#38bdf8] transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-[#d1d5db] mb-1">
-                  آدرس آیکون (اختیاری):
+                  لینک مستقیم آیکون (اختیاری):
                 </label>
                 <input
                   type="text"
