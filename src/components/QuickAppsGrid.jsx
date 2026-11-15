@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Globe, ExternalLink, Trash2, Edit2, Check } from 'lucide-react';
+import { ICON_158 } from '../data/icon158';
 
 const STORAGE_KEY = 'homepage_quick_apps_v1';
 
@@ -9,11 +10,11 @@ const DEFAULT_QUICK_APPS = [
     id: 'app_1',
     title: 'حکمت مدیا',
     url: 'http://192.168.0.158:1532/',
-    icon: 'http://192.168.0.158:1532/icon.png'
+    icon: ICON_158
   },
   {
     id: 'app_2',
-    title: 'اتوماسیون اداری',
+    title: 'اتوماسیون',
     url: 'http://192.168.0.4:1940/',
     icon: ''
   },
@@ -25,7 +26,7 @@ const DEFAULT_QUICK_APPS = [
   },
   {
     id: 'app_4',
-    title: 'سیستم آموزش',
+    title: 'آموزش',
     url: 'http://192.168.0.4:1930/education',
     icon: ''
   }
