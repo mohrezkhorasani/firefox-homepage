@@ -114,6 +114,7 @@ class AutofillPalette:
         self.selected_index = 0
         self.search_var = None
         self.is_visible = False
+        self.item_cards = []
 
     def build_gui(self):
         self.root = tk.Tk()
@@ -121,6 +122,21 @@ class AutofillPalette:
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
         self.root.configure(bg="#0f172a")
+
+        # Style standard ttk Scrollbar for dark theme
+        try:
+            style = ttk.Style()
+            if 'clam' in style.theme_names():
+                style.theme_use('clam')
+            style.configure(
+                'Vertical.TScrollbar',
+                background='#334155',
+                troughcolor='#0f172a',
+                bordercolor='#0f172a',
+                arrowcolor='#94a3b8'
+            )
+        except Exception:
+            pass
 
         # Outer border
         outer = tk.Frame(self.root, bg="#334155", padx=1, pady=1)
@@ -159,9 +175,36 @@ class AutofillPalette:
         )
         self.entry.pack(fill="x")
 
-        # List Container
-        self.list_frame = tk.Frame(inner, bg="#0f172a")
-        self.list_frame.pack(fill="both", expand=True)
+        # Scrollable List Container (Canvas + Scrollbar)
+        self.list_container = tk.Frame(inner, bg="#0f172a")
+        self.list_container.pack(fill="both", expand=True)
+
+        self.scrollbar = ttk.Scrollbar(self.list_container, orient="vertical")
+        self.scrollbar.pack(side="right", fill="y")
+
+        self.canvas = tk.Canvas(
+            self.list_container,
+            bg="#0f172a",
+            highlightthickness=0,
+            yscrollcommand=self.scrollbar.set
+        )
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.configure(command=self.canvas.yview)
+
+        self.list_frame = tk.Frame(self.canvas, bg="#0f172a")
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.list_frame, anchor="nw")
+
+        self.list_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+        self.canvas.bind(
+            "<Configure>",
+            lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width)
+        )
+
+        # Mouse wheel scrolling
+        self.root.bind_all("<MouseWheel>", self.on_mouse_wheel)
 
         # Keyboard bindings
         self.root.bind("<Escape>", lambda e: self.hide())
@@ -171,6 +214,34 @@ class AutofillPalette:
         self.root.bind("<FocusOut>", self.on_focus_out)
 
         self.root.withdraw()
+
+    def on_mouse_wheel(self, event):
+        if not self.is_visible or not self.canvas:
+            return
+        # Negative delta scrolls down on Windows
+        delta = -1 * (event.delta // 120)
+        self.canvas.yview_scroll(delta, "units")
+
+    def see_selected(self):
+        if not self.item_cards or self.selected_index < 0 or self.selected_index >= len(self.item_cards):
+            return
+        target_widget = self.item_cards[self.selected_index]
+        self.root.update_idletasks()
+        y_top = target_widget.winfo_y()
+        y_bottom = y_top + target_widget.winfo_height()
+        total_h = self.list_frame.winfo_height()
+        vis_h = self.canvas.winfo_height()
+        if total_h <= vis_h or total_h == 0:
+            return
+        cur_top_frac, cur_bottom_frac = self.canvas.yview()
+        cur_top_px = cur_top_frac * total_h
+        cur_bottom_px = cur_bottom_frac * total_h
+
+        if y_top < cur_top_px:
+            self.canvas.yview_moveto(max(0.0, y_top / total_h))
+        elif y_bottom > cur_bottom_px:
+            new_top = (y_bottom - vis_h) / total_h
+            self.canvas.yview_moveto(min(1.0, max(0.0, new_top)))
 
     def on_focus_out(self, event):
         # Auto-hide if window loses focus
@@ -190,10 +261,14 @@ class AutofillPalette:
         self.selected_index = 0
         self.filter_and_render()
 
+        # Reset canvas scroll to top
+        if self.canvas:
+            self.canvas.yview_moveto(0.0)
+
         # Position near mouse cursor or centered nicely
         mx, my = get_mouse_pos()
-        width = 340
-        height = 360
+        width = 360
+        height = 420
 
         # Screen bounds check
         screen_w = self.root.winfo_screenwidth()
@@ -231,6 +306,8 @@ class AutofillPalette:
     def on_search_change(self):
         self.selected_index = 0
         self.filter_and_render()
+        if self.canvas:
+            self.canvas.yview_moveto(0.0)
 
     def filter_and_render(self):
         q = (self.search_var.get() or "").lower().strip()
@@ -249,6 +326,7 @@ class AutofillPalette:
         # Clear existing list items
         for widget in self.list_frame.winfo_children():
             widget.destroy()
+        self.item_cards = []
 
         if not self.filtered_items:
             empty_lbl = tk.Label(
@@ -259,8 +337,8 @@ class AutofillPalette:
             empty_lbl.pack(pady=40)
             return
 
-        # Render top 8 items
-        for idx, it in enumerate(self.filtered_items[:8]):
+        # Render all filtered items
+        for idx, it in enumerate(self.filtered_items):
             is_sel = (idx == self.selected_index)
             bg_col = "#312e81" if is_sel else "#1e293b"
             bd_col = "#6366f1" if is_sel else "#334155"
@@ -271,6 +349,7 @@ class AutofillPalette:
                 highlightthickness=1, highlightbackground=bd_col
             )
             card.pack(fill="x", pady=2)
+            self.item_cards.append(card)
 
             # Row 1: Label + Tag
             r1 = tk.Frame(card, bg=bg_col)
@@ -311,8 +390,10 @@ class AutofillPalette:
     def move_selection(self, delta):
         if not self.filtered_items:
             return
-        self.selected_index = (self.selected_index + delta) % min(len(self.filtered_items), 8)
+        total = len(self.filtered_items)
+        self.selected_index = (self.selected_index + delta) % total
         self.filter_and_render()
+        self.see_selected()
 
     def select_and_choose(self, idx):
         self.selected_index = idx
@@ -328,6 +409,9 @@ class AutofillPalette:
         self.hide()
 
         # Place to clipboard and send Ctrl+V
+        set_clipboard(val)
+        time.sleep(0.04)
+        paste_clipboard(saved_hwnd)
         set_clipboard(val)
         time.sleep(0.04)
         paste_clipboard(saved_hwnd)
