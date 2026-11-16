@@ -408,12 +408,9 @@ class AutofillPalette:
         saved_hwnd = self.prev_hwnd
         self.hide()
 
-        # Place to clipboard and send Ctrl+V
+        # Place to clipboard and send Ctrl+V once
         set_clipboard(val)
-        time.sleep(0.04)
-        paste_clipboard(saved_hwnd)
-        set_clipboard(val)
-        time.sleep(0.04)
+        time.sleep(0.05)
         paste_clipboard(saved_hwnd)
 
 palette = AutofillPalette()
