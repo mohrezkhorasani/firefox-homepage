@@ -9,6 +9,7 @@ import ServicesPage from './components/ServicesPage';
 import TodoWidget from './components/TodoWidget';
 import MarketWidget from './components/MarketWidget';
 import ApiMonitorWidget from './components/ApiMonitorWidget';
+import MiniCalculatorWidget from './components/MiniCalculatorWidget';
 import NetworkSpeedWidget from './components/NetworkSpeedWidget';
 import ActivePortsBottomWidget from './components/ActivePortsBottomWidget';
 import { DEFAULT_BOOKMARKS } from './data/defaultBookmarks';
@@ -190,8 +191,11 @@ export default function App() {
       {/* Internet Speed Widget beside Background Button (Absolute at page top, stacked download/upload) */}
       <NetworkSpeedWidget />
 
-      {/* Top-Right API Monitor Widget */}
-      <ApiMonitorWidget />
+      {/* Top-Right Column: API Monitor + Mini Calculator Widget */}
+      <div className="fixed top-4 right-4 z-40 w-[320px] flex flex-col gap-3">
+        <ApiMonitorWidget />
+        <MiniCalculatorWidget />
+      </div>
 
       {/* Center Content Wrapper: positioned cleanly between the left menu (BottomNav) and right menu (ApiMonitor) */}
       <div className="lg:ml-[225px] xl:mr-[345px] transition-all">

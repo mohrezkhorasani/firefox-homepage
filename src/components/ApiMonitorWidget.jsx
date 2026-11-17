@@ -153,7 +153,7 @@ export default function ApiMonitorWidget() {
   return (
     <>
       <div
-        className="fixed top-4 right-4 z-40 w-[320px] glass p-3 rounded-2xl border border-white/20 shadow-2xl flex flex-col gap-2 select-none text-shadow animate-fadeIn"
+        className="w-full glass p-3 rounded-2xl border border-white/20 shadow-2xl flex flex-col gap-2 select-none text-shadow animate-fadeIn"
         dir="rtl"
       >
         {/* Header */}
