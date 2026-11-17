@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Calculator, Delete, RotateCcw, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
+// Format numbers with comma separator (e.g. 1,000,000 or -5,000.25)
+function formatNumberWithCommas(val) {
+  if (!val || val === 'Error') return val;
+  const str = String(val);
+  const parts = str.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
+// Format numbers inside expressions with comma separator for readable display
+function formatExpression(expression) {
+  if (!expression) return '';
+  return expression.replace(/\d+(\.\d+)?/g, (match) => formatNumberWithCommas(match));
+}
+
 export default function MiniCalculatorWidget() {
   const [expr, setExpr] = useState('');
   const [result, setResult] = useState('');
@@ -242,11 +257,13 @@ export default function MiniCalculatorWidget() {
       {/* Screen Display */}
       <div className="bg-black/50 border border-white/10 rounded-xl p-2.5 flex flex-col items-end justify-center min-h-[50px] overflow-hidden">
         <div className="text-[11px] font-mono text-gray-400 h-4 truncate w-full text-left" dir="ltr">
-          {expr || '0'}
+          {formatExpression(expr) || '0'}
         </div>
         <div className="flex items-baseline justify-between w-full mt-0.5">
-          <span className="text-[9px] text-gray-500 font-mono">
-            {previewResult && previewResult !== 'Error' && previewResult !== expr ? `= ${previewResult}` : ''}
+          <span className="text-[9px] text-gray-500 font-mono" dir="ltr">
+            {previewResult && previewResult !== 'Error' && previewResult !== expr
+              ? `= ${formatNumberWithCommas(previewResult)}`
+              : ''}
           </span>
           <span
             className={`text-base font-bold font-mono truncate max-w-[200px] text-left ${
@@ -254,7 +271,13 @@ export default function MiniCalculatorWidget() {
             }`}
             dir="ltr"
           >
-            {result || previewResult || (expr ? '' : '0')}
+            {result
+              ? formatNumberWithCommas(result)
+              : previewResult
+              ? formatNumberWithCommas(previewResult)
+              : expr
+              ? ''
+              : '0'}
           </span>
         </div>
       </div>
