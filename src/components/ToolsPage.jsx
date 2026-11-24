@@ -6,6 +6,7 @@ import SystemDrivesWidget from './SystemDrivesWidget';
 import GoogleAccountModal from './GoogleAccountModal';
 import AutofillManagerWidget from './AutofillManagerWidget';
 import RoutingHistoryWidget from './RoutingHistoryWidget';
+import FancyTextFormatterWidget from './FancyTextFormatterWidget';
 import { getGoogleConfig, getGoogleEvents } from '../services/calendarService';
 
 export default function ToolsPage({ pages, onRemovePage }) {
@@ -37,10 +38,13 @@ export default function ToolsPage({ pages, onRemovePage }) {
 
       {/* Tools Grid: 2 rows or flexible 3-col grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* 1. Autofill Manager (دیتابیس مقادیر، دامین‌ها و فیلدها با امکان افزودن و حذف) */}
+        {/* 1. Fancy Text & Title Styler (Bold Sans + Small-Caps Converter with Dropdown) */}
+        <FancyTextFormatterWidget />
+
+        {/* 2. Autofill Manager (دیتابیس مقادیر، دامین‌ها و فیلدها با امکان افزودن و حذف) */}
         <AutofillManagerWidget />
 
-        {/* 2. System Hard Drives (فضای درایوهای ویندوز) */}
+        {/* 3. System Hard Drives (فضای درایوهای ویندوز) */}
         <SystemDrivesWidget />
 
         {/* 3. Google Calendar & Tasks Integration */}
