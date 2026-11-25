@@ -19,7 +19,7 @@ export default function TagFilter({ tags, activeTag, onSelectTag }) {
               className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md text-center border truncate min-w-[65px] ${
                 isActive
                   ? `${tag.activeColor} shadow-lg scale-105`
-                  : 'bg-black/75 text-gray-300 hover:text-white hover:bg-black/90 border-white/10'
+                  : 'bg-[#000000]/75 text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#000000]/90 border-[#ffffff]/10'
               }`}
             >
               {tag.name}
