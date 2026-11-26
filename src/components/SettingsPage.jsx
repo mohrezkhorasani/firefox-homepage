@@ -2,9 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, Globe, Shield, RefreshCw, Check, Copy, ExternalLink, 
   Layers, Sliders, Monitor, CheckCircle2, AlertCircle, Sparkles, Terminal,
-  Download, Upload, Database, FileJson, Cloud, HardDrive, CheckSquare, RotateCw
+  Download, Upload, Database, FileJson, Cloud, HardDrive, CheckSquare, RotateCw,
+  LogOut, CloudUpload, CloudDownload, UserCheck
 } from 'lucide-react';
-import { fetchAutofillItems, saveAutofillItems } from '../services/windowsAgentService';
+import { 
+  fetchAutofillItems, 
+  saveAutofillItems,
+  getGoogleAuthUrl,
+  fetchGoogleSyncStatus,
+  logoutGoogleAccount,
+  uploadBackupToGoogleDrive,
+  downloadBackupFromGoogleDrive
+} from '../services/windowsAgentService';
 
 const DEFAULT_SETTINGS = {
   showIpInAddressBar: true,
@@ -48,6 +57,47 @@ export default function SettingsPage() {
     autofill: 0,
     servers: 0
   });
+
+  // Google Cloud Sync State
+  const [googleStatus, setGoogleStatus] = useState({
+    connected: false,
+    email: null,
+    name: null,
+    picture: null,
+    last_sync: null,
+    last_sync_size: null,
+    loading: true
+  });
+  const [isGoogleSyncing, setIsGoogleSyncing] = useState(false);
+  const [isGoogleRestoring, setIsGoogleRestoring] = useState(false);
+
+  async function loadGoogleStatus() {
+    try {
+      const res = await fetchGoogleSyncStatus();
+      setGoogleStatus({ ...res, loading: false });
+    } catch {
+      setGoogleStatus(prev => ({ ...prev, connected: false, loading: false }));
+    }
+  }
+
+  useEffect(() => {
+    loadGoogleStatus();
+  }, []);
+
+  useEffect(() => {
+    function handleAuthMessage(e) {
+      if (e.data && e.data.type === 'GOOGLE_AUTH_RESULT') {
+        loadGoogleStatus();
+        if (e.data.ok) {
+          showToast('✅ اتصال به حساب گوگل با موفقیت برقرار شد');
+        } else {
+          showToast('❌ خطا در اتصال به حساب گوگل');
+        }
+      }
+    }
+    window.addEventListener('message', handleAuthMessage);
+    return () => window.removeEventListener('message', handleAuthMessage);
+  }, []);
 
   function refreshLocalStats() {
     try {
@@ -167,68 +217,111 @@ export default function SettingsPage() {
     );
   }
 
-  // --- FULL BACKUP & EXPORT (ALL LOCALSTORAGE + PYTHON DATABASES) ---
+  // Helper: Collect all local data + python databases into one package
+  async function generateFullBackupPackage() {
+    const localData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        const val = localStorage.getItem(key);
+        try {
+          localData[key] = JSON.parse(val);
+        } catch {
+          localData[key] = val;
+        }
+      }
+    }
+
+    let pythonAutofill = null;
+    try {
+      pythonAutofill = await fetchAutofillItems();
+    } catch (err) {
+      console.warn('Python agent not reachable during backup:', err);
+    }
+
+    let pythonRoutes = null;
+    try {
+      const r = await fetch('http://127.0.0.1:23159/api/routes', {
+        signal: AbortSignal.timeout(1800)
+      });
+      if (r.ok) {
+        const d = await r.json();
+        pythonRoutes = d.routes || [];
+      }
+    } catch {}
+
+    return {
+      version: '2.0.0',
+      suite: 'Mohrez Firefox Homepage Suite',
+      exportedAt: new Date().toISOString(),
+      metadata: {
+        machine: 'MOHREZ',
+        totalBookmarks: Array.isArray(localData.homepage_bookmarks_v3) ? localData.homepage_bookmarks_v3.length : 0,
+        totalPages: Array.isArray(localData.homepage_pages) ? localData.homepage_pages.length : 0,
+        totalAutofill: Array.isArray(pythonAutofill) ? pythonAutofill.length : (Array.isArray(localData.mqa_autofill_items) ? localData.mqa_autofill_items.length : 0),
+        totalServers: Array.isArray(localData.homepage_servers_v1) ? localData.homepage_servers_v1.length : 0,
+        pythonAutofillConnected: pythonAutofill !== null,
+        pythonRoutesConnected: pythonRoutes !== null
+      },
+      localStorage: localData,
+      pythonDatabases: {
+        autofill: pythonAutofill || localData.mqa_autofill_items || [],
+        routesHistory: pythonRoutes || []
+      }
+    };
+  }
+
+  // Helper: Apply a backup package into localStorage and Python backend
+  async function applyBackupPackage(backup) {
+    if (!backup || typeof backup !== 'object') {
+      throw new Error('فرمت داده‌های پشتیبان معتبر نیست.');
+    }
+
+    const storageObj = backup.localStorage || backup;
+    let restoredCount = 0;
+
+    for (const [key, val] of Object.entries(storageObj)) {
+      if (typeof val === 'string') {
+        localStorage.setItem(key, val);
+      } else {
+        localStorage.setItem(key, JSON.stringify(val));
+      }
+      restoredCount++;
+    }
+
+    let restoredAutofillCount = 0;
+    const autofillItems = backup.pythonDatabases?.autofill || storageObj.mqa_autofill_items;
+    if (Array.isArray(autofillItems) && autofillItems.length > 0) {
+      try {
+        const ok = await saveAutofillItems(autofillItems);
+        if (ok) restoredAutofillCount = autofillItems.length;
+      } catch (e) {
+        console.warn('Failed to save items to Python backend:', e);
+      }
+    }
+
+    try {
+      const restoredSettings = JSON.parse(localStorage.getItem('homepage_settings_v1') || '{}');
+      setSettings(prev => ({ ...prev, ...restoredSettings }));
+      window.dispatchEvent(new CustomEvent('MOHREZ_SETTINGS_UPDATED', { detail: restoredSettings }));
+    } catch {}
+
+    refreshLocalStats();
+
+    return {
+      restoredCount,
+      restoredAutofillCount,
+      storageObj
+    };
+  }
+
+  // --- FULL BACKUP & EXPORT ---
   async function handleExportFullBackup() {
     setIsExporting(true);
     showToast('در حال جمع‌آوری تمام داده‌ها و دیتابیس‌های پایتون...');
 
     try {
-      // 1. Gather all LocalStorage items
-      const localData = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key) {
-          const val = localStorage.getItem(key);
-          try {
-            localData[key] = JSON.parse(val);
-          } catch {
-            localData[key] = val;
-          }
-        }
-      }
-
-      // 2. Fetch Live Python Autofill Database from port 23157
-      let pythonAutofill = null;
-      try {
-        pythonAutofill = await fetchAutofillItems();
-      } catch (err) {
-        console.warn('Python agent not reachable during export:', err);
-      }
-
-      // 3. Fetch Live Python Routes History from port 23159
-      let pythonRoutes = null;
-      try {
-        const r = await fetch('http://127.0.0.1:23159/api/routes', {
-          signal: AbortSignal.timeout(1800)
-        });
-        if (r.ok) {
-          const d = await r.json();
-          pythonRoutes = d.routes || [];
-        }
-      } catch {}
-
-      // 4. Construct complete export package
-      const backupPackage = {
-        version: '2.0.0',
-        suite: 'Mohrez Firefox Homepage Suite',
-        exportedAt: new Date().toISOString(),
-        metadata: {
-          machine: 'MOHREZ',
-          totalBookmarks: Array.isArray(localData.homepage_bookmarks_v3) ? localData.homepage_bookmarks_v3.length : 0,
-          totalPages: Array.isArray(localData.homepage_pages) ? localData.homepage_pages.length : 0,
-          totalAutofill: Array.isArray(pythonAutofill) ? pythonAutofill.length : (Array.isArray(localData.mqa_autofill_items) ? localData.mqa_autofill_items.length : 0),
-          totalServers: Array.isArray(localData.homepage_servers_v1) ? localData.homepage_servers_v1.length : 0,
-          pythonAutofillConnected: pythonAutofill !== null,
-          pythonRoutesConnected: pythonRoutes !== null
-        },
-        localStorage: localData,
-        pythonDatabases: {
-          autofill: pythonAutofill || localData.mqa_autofill_items || [],
-          routesHistory: pythonRoutes || []
-        }
-      };
-
-      // 5. Trigger download
+      const backupPackage = await generateFullBackupPackage();
       const jsonStr = JSON.stringify(backupPackage, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -249,7 +342,7 @@ export default function SettingsPage() {
     }
   }
 
-  // --- FULL IMPORT & RESTORE (LOCALSTORAGE + PYTHON DATABASES) ---
+  // --- FULL IMPORT & RESTORE ---
   async function handleImportFile(file) {
     if (!file) return;
     setIsImporting(true);
@@ -259,52 +352,14 @@ export default function SettingsPage() {
     try {
       const text = await file.text();
       const backup = JSON.parse(text);
+      const res = await applyBackupPackage(backup);
 
-      if (!backup || typeof backup !== 'object') {
-        throw new Error('فرمت فایل معتبر نیست.');
-      }
-
-      const storageObj = backup.localStorage || backup;
-      let restoredCount = 0;
-
-      // 1. Restore all LocalStorage entries
-      for (const [key, val] of Object.entries(storageObj)) {
-        if (typeof val === 'string') {
-          localStorage.setItem(key, val);
-        } else {
-          localStorage.setItem(key, JSON.stringify(val));
-        }
-        restoredCount++;
-      }
-
-      // 2. Restore Python Backend Databases (Autofill)
-      let restoredAutofillCount = 0;
-      const autofillItems = backup.pythonDatabases?.autofill || storageObj.mqa_autofill_items;
-      if (Array.isArray(autofillItems) && autofillItems.length > 0) {
-        try {
-          const ok = await saveAutofillItems(autofillItems);
-          if (ok) restoredAutofillCount = autofillItems.length;
-        } catch (e) {
-          console.warn('Failed to save items to Python backend:', e);
-        }
-      }
-
-      // 3. Broadcast restored settings & extensions state
-      try {
-        const restoredSettings = JSON.parse(localStorage.getItem('homepage_settings_v1') || '{}');
-        setSettings(prev => ({ ...prev, ...restoredSettings }));
-        window.dispatchEvent(new CustomEvent('MOHREZ_SETTINGS_UPDATED', { detail: restoredSettings }));
-      } catch {}
-
-      refreshLocalStats();
-
-      // Stats preview
       setImportStats({
-        totalKeys: restoredCount,
-        bookmarks: Array.isArray(storageObj.homepage_bookmarks_v3) ? storageObj.homepage_bookmarks_v3.length : '—',
-        autofill: restoredAutofillCount || (Array.isArray(autofillItems) ? autofillItems.length : '—'),
-        pages: Array.isArray(storageObj.homepage_pages) ? storageObj.homepage_pages.length : '—',
-        servers: Array.isArray(storageObj.homepage_servers_v1) ? storageObj.homepage_servers_v1.length : '—'
+        totalKeys: res.restoredCount,
+        bookmarks: Array.isArray(res.storageObj.homepage_bookmarks_v3) ? res.storageObj.homepage_bookmarks_v3.length : '—',
+        autofill: res.restoredAutofillCount || (Array.isArray(res.storageObj.mqa_autofill_items) ? res.storageObj.mqa_autofill_items.length : '—'),
+        pages: Array.isArray(res.storageObj.homepage_pages) ? res.storageObj.homepage_pages.length : '—',
+        servers: Array.isArray(res.storageObj.homepage_servers_v1) ? res.storageObj.homepage_servers_v1.length : '—'
       });
 
       showToast('اطلاعات با موفقیت بازیابی شد! جهت اعمال کامل، رفرش کنید.');
@@ -313,6 +368,85 @@ export default function SettingsPage() {
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  // --- GOOGLE DRIVE CLOUD SYNC ACTIONS ---
+  async function handleGoogleLogin() {
+    try {
+      showToast('در حال ارتباط با سرور و دریافت صفحه ورود گوگل...');
+      const res = await getGoogleAuthUrl();
+      if (res && res.url) {
+        const width = 520;
+        const height = 640;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+        const authWindow = window.open(
+          res.url,
+          'google_oauth_popup',
+          `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes`
+        );
+
+        const checkClosed = setInterval(() => {
+          if (!authWindow || authWindow.closed) {
+            clearInterval(checkClosed);
+            setTimeout(loadGoogleStatus, 1000);
+          }
+        }, 1200);
+      }
+    } catch (err) {
+      showToast('خطا در ورود به گوگل: ' + err.message);
+    }
+  }
+
+  async function handleGoogleUpload() {
+    setIsGoogleSyncing(true);
+    showToast('در حال بارگذاری بسته پشتیبان کامل در گوگل درایو (AppData)...');
+    try {
+      const pkg = await generateFullBackupPackage();
+      const res = await uploadBackupToGoogleDrive(pkg);
+      if (res && res.ok) {
+        await loadGoogleStatus();
+        showToast('✅ اطلاعات با موفقیت در فضای ابری گوگل درایو ذخیره شد');
+      }
+    } catch (err) {
+      showToast('خطا در آپلود به گوگل درایو: ' + err.message);
+    } finally {
+      setIsGoogleSyncing(false);
+    }
+  }
+
+  async function handleGoogleDownload() {
+    setIsGoogleRestoring(true);
+    showToast('در حال دریافت اطلاعات پشتیبان از گوگل درایو...');
+    try {
+      const res = await downloadBackupFromGoogleDrive();
+      if (res && res.ok && res.backup) {
+        const stats = await applyBackupPackage(res.backup);
+        setImportStats({
+          totalKeys: stats.restoredCount,
+          bookmarks: Array.isArray(stats.storageObj.homepage_bookmarks_v3) ? stats.storageObj.homepage_bookmarks_v3.length : '—',
+          autofill: stats.restoredAutofillCount || '—',
+          pages: Array.isArray(stats.storageObj.homepage_pages) ? stats.storageObj.homepage_pages.length : '—',
+          servers: Array.isArray(stats.storageObj.homepage_servers_v1) ? stats.storageObj.homepage_servers_v1.length : '—'
+        });
+        showToast('✅ داده‌های کامل با موفقیت از گوگل درایو بازیابی شدند!');
+      }
+    } catch (err) {
+      showToast('خطا در دانلود از گوگل درایو: ' + err.message);
+    } finally {
+      setIsGoogleRestoring(false);
+    }
+  }
+
+  async function handleGoogleLogout() {
+    if (!window.confirm('آیا مایلید از حساب گوگل خارج شوید؟ همگام‌سازی ابری متوقف خواهد شد.')) return;
+    try {
+      await logoutGoogleAccount();
+      setGoogleStatus({ connected: false });
+      showToast('خروج از حساب گوگل انجام شد');
+    } catch (err) {
+      showToast('خطا در خروج از گوگل: ' + err.message);
     }
   }
 
@@ -779,24 +913,169 @@ export default function SettingsPage() {
 
         </div>
 
-        {/* --- GOOGLE CLOUD SYNC ARCHITECTURE INFO BANNER --- */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1e293b]/90 to-[#0f172a]/90 border border-[#38bdf8]/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-[#38bdf8]/15 text-[#38bdf8] shrink-0 mt-0.5">
-              <Cloud className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs font-bold text-[#ffffff] flex items-center gap-2">
-                <span>پاسخ به سوال سینک خودکار با گوگل (Google Cloud Auto-Sync):</span>
-                <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#10b981]/20 text-[#34d399] font-mono">
-                  کاملاً شدنی و استاندارد
-                </span>
+        {/* --- LIVE GOOGLE CLOUD SYNC DASHBOARD (ACTIVE PRODUCTION INTEGRATION) --- */}
+        <div className="rounded-3xl p-6 bg-gradient-to-br from-[#0f172a] via-[#020617] to-[#0f172a] border border-[#38bdf8]/30 shadow-2xl space-y-5">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#ffffff]/10 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#ffffff]/10 border border-[#ffffff]/15 p-2 flex items-center justify-center shadow-inner">
+                {/* Google 4-Color 'G' SVG Logo */}
+                <svg className="w-6 h-6" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.27 21.43 7.34 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.27 2.57 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                </svg>
               </div>
-              <p className="text-[11px] text-[#cbd5e1] leading-relaxed">
-                همگام‌سازی خودکار این داده‌ها با اکانت گوگل شما از طریق <b>Google Drive API</b> (پوشه اختصاصی و مخفی <code className="text-[#38bdf8]">appDataFolder</code>) بدون ایجاد هیچ فایل مزاحمی در درایو شخصی شما، کاملاً از نظر فنی شدنی است و می‌تواند در آینده با یک کلیک فعال شود.
-              </p>
+              <div>
+                <h4 className="text-base font-bold text-[#ffffff] flex items-center gap-2">
+                  <span>همگام‌سازی ابری با گوگل درایو (Google Drive Cloud Sync)</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
+                    googleStatus.connected 
+                      ? 'bg-[#10b981]/20 text-[#34d399] border-[#10b981]/40' 
+                      : 'bg-[#94a3b8]/10 text-[#94a3b8] border-[#94a3b8]/30'
+                  }`}>
+                    {googleStatus.connected ? 'متصل (Connected)' : 'در انتظار اتصال'}
+                  </span>
+                </h4>
+                <p className="text-xs text-[#94a3b8] mt-0.5">
+                  پشتیبان‌گیری امن و همگام‌سازی خودکار بوکمارک‌ها، صفحات و اتوفیل در پوشه خصوصی <code className="text-[#38bdf8]">appDataFolder</code>
+                </p>
+              </div>
             </div>
+
+            <button
+              onClick={loadGoogleStatus}
+              className="p-2 rounded-xl bg-[#ffffff]/5 hover:bg-[#ffffff]/10 text-[#94a3b8] hover:text-[#ffffff] transition border border-[#ffffff]/10 shrink-0 self-start sm:self-auto"
+              title="بروزرسانی وضعیت اتصال گوگل"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${googleStatus.loading ? 'animate-spin text-[#38bdf8]' : ''}`} />
+            </button>
           </div>
+
+          {/* Connected State vs Disconnected State */}
+          {googleStatus.connected ? (
+            <div className="space-y-5">
+              
+              {/* Profile Bar */}
+              <div className="p-4 rounded-2xl bg-[#020617]/80 border border-[#38bdf8]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  {googleStatus.picture ? (
+                    <img 
+                      src={googleStatus.picture} 
+                      alt="Google Avatar" 
+                      className="w-12 h-12 rounded-full border-2 border-[#38bdf8] shadow-md object-cover" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#2563eb] to-[#06b6d4] text-[#ffffff] flex items-center justify-center font-bold text-lg border-2 border-[#38bdf8]">
+                      {(googleStatus.name || 'G')[0]}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
+                      <span>{googleStatus.name || 'حساب کاربری گوگل'}</span>
+                      <span className="text-[10px] px-2 py-0.2 rounded bg-[#34d399]/20 text-[#34d399] font-mono">
+                        Google Verified
+                      </span>
+                    </div>
+                    <div className="text-xs text-[#94a3b8] font-mono mt-0.5" dir="ltr">
+                      {googleStatus.email}
+                    </div>
+                    <div className="text-[11px] text-[#38bdf8] mt-1 flex items-center gap-1.5">
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>
+                        {googleStatus.last_sync 
+                          ? `آخرین همگام‌سازی ابری: ${googleStatus.last_sync} (${Math.round((googleStatus.last_sync_size || 0) / 1024)} KB)`
+                          : 'تاکنون همگام‌سازی ابری انجام نشده است'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleGoogleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ef4444]/15 hover:bg-[#ef4444]/25 text-[#f87171] hover:text-[#ef4444] border border-[#ef4444]/30 text-xs font-semibold transition cursor-pointer shrink-0"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>قطع اتصال حساب</span>
+                </button>
+              </div>
+
+              {/* Action Buttons: Sync Now vs Restore from Cloud */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={handleGoogleUpload}
+                  disabled={isGoogleSyncing}
+                  className="flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#2563eb] to-[#0284c7] hover:from-[#1d4ed8] hover:to-[#0369a1] text-[#ffffff] text-xs font-bold transition shadow-lg shadow-[#2563eb]/25 disabled:opacity-50 cursor-pointer"
+                >
+                  {isGoogleSyncing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>در حال همگام‌سازی و آپلود به درایو...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CloudUpload className="w-4 h-4" />
+                      <span>همگام‌سازی و آپلود اکنون به گوگل درایو (Sync to Cloud)</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleGoogleDownload}
+                  disabled={isGoogleRestoring}
+                  className="flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl bg-[#0f172a] hover:bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/40 hover:border-[#38bdf8] text-xs font-bold transition shadow-md disabled:opacity-50 cursor-pointer"
+                >
+                  {isGoogleRestoring ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>در حال دریافت و بازیابی از درایو...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CloudDownload className="w-4 h-4" />
+                      <span>بازیابی داده‌ها از گوگل درایو (Restore from Cloud)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="text-[11px] text-[#94a3b8] flex items-center justify-between px-1">
+                <span>🔒 ذخیره‌سازی در فضای محرمانه و اختصاصی Application Data درایو شما انجام می‌شود.</span>
+                <span>پروتکل: Google OAuth 2.0 + REST API v3</span>
+              </div>
+
+            </div>
+          ) : (
+            <div className="p-6 rounded-2xl bg-[#020617]/80 border border-[#ffffff]/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="space-y-1.5 text-center sm:text-right">
+                <div className="text-sm font-bold text-[#ffffff]">
+                  اتصال به حساب گوگل جهت همگام‌سازی دائمی و خودکار
+                </div>
+                <p className="text-xs text-[#cbd5e1] max-w-xl leading-relaxed">
+                  با اتصال حساب گوگل، کلیه بوکمارک‌ها، تگ‌ها، صفحات و اتوفیل شما به طور پیوسته در پوشه مخفی و امن گوگل درایو شخصی شما ذخیره می‌شوند و در هر سیستم یا مرورگر دیگری با یک کلیک بازیابی خواهند شد.
+                </p>
+                <div className="text-[11px] text-[#34d399] pt-1">
+                  ✨ بدون اشغال فضای درایو اصلی و بدون دسترسی به سایر فایل‌های شما (فقط پوشه AppData).
+                </div>
+              </div>
+
+              <button
+                onClick={handleGoogleLogin}
+                className="shrink-0 flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-[#ffffff] hover:bg-[#f1f5f9] text-[#0f172a] font-bold text-xs transition shadow-xl shadow-[#ffffff]/10 hover:shadow-2xl cursor-pointer"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.27 21.43 7.34 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.27 2.57 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                </svg>
+                <span>ورود با حساب گوگل (Sign in with Google)</span>
+              </button>
+            </div>
+          )}
+
         </div>
 
       </div>

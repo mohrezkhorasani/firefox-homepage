@@ -303,4 +303,77 @@ export async function saveAutofillItems(items) {
   }
 }
 
+// ==================== GOOGLE CLOUD SYNC SERVICES ====================
+
+export async function getGoogleAuthUrl() {
+  const port = await findActiveAgentPort();
+  if (!port) throw new Error('سرویس پس‌زمینه پایتون در دسترس نیست.');
+  const res = await fetch(`http://127.0.0.1:${port}/api/auth/google/url`, {
+    signal: AbortSignal.timeout(3000)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'خطا در دریافت آدرس ورود گوگل');
+  }
+  return await res.json();
+}
+
+export async function fetchGoogleSyncStatus() {
+  const port = await findActiveAgentPort();
+  if (!port) return { connected: false };
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/auth/google/status`, {
+      signal: AbortSignal.timeout(3000)
+    });
+    if (!res.ok) return { connected: false };
+    return await res.json();
+  } catch {
+    return { connected: false };
+  }
+}
+
+export async function logoutGoogleAccount() {
+  const port = await findActiveAgentPort();
+  if (!port) return false;
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/auth/google/logout`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(3000)
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function uploadBackupToGoogleDrive(backupPackage) {
+  const port = await findActiveAgentPort();
+  if (!port) throw new Error('سرویس پس‌زمینه پایتون در دسترس نیست.');
+  const res = await fetch(`http://127.0.0.1:${port}/api/sync/google-drive/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ backup: backupPackage }),
+    signal: AbortSignal.timeout(30000)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || 'خطا در آپلود به گوگل درایو');
+  }
+  return data;
+}
+
+export async function downloadBackupFromGoogleDrive() {
+  const port = await findActiveAgentPort();
+  if (!port) throw new Error('سرویس پس‌زمینه پایتون در دسترس نیست.');
+  const res = await fetch(`http://127.0.0.1:${port}/api/sync/google-drive/download`, {
+    signal: AbortSignal.timeout(30000)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || 'خطا در دانلود پشتیبان از گوگل درایو');
+  }
+  return data;
+}
+
+
 

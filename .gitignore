@@ -5,3 +5,9 @@ dist/
 __pycache__/
 *.pyc
 server_port.txt
+
+# Google OAuth Credentials
+*google_client_secret*.json
+!google_client_secret.example.json
+*google_tokens*.json
+*google_sync_meta*.json

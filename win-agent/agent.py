@@ -15,6 +15,11 @@ import time
 import shutil
 import urllib.parse
 
+try:
+    import google_sync
+except Exception:
+    google_sync = None
+
 DEFAULT_PORT = 23157
 MAX_PORT_ATTEMPTS = 50
 
@@ -93,6 +98,113 @@ def get_system_summary():
         'machine': platform.machine(),
         'username': os.getenv('USERNAME', 'User'),
         'computer_name': os.getenv('COMPUTERNAME', 'Localhost')
+    }
+
+def format_size_human(b):
+    if b >= 1024**3:
+        return f"{round(b / (1024**3), 2)} GB"
+    elif b >= 1024**2:
+        return f"{round(b / (1024**2), 2)} MB"
+    elif b >= 1024:
+        return f"{round(b / 1024, 2)} KB"
+    return f"{b} B"
+
+def fast_folder_size(path, timeout=1.8):
+    """Calculates folder size quickly with a safety timeout to prevent hanging on huge subtrees."""
+    t0 = time.time()
+    total = 0
+    files_count = 0
+    dirs_count = 0
+    partial = False
+    stack = [path]
+    while stack:
+        if time.time() - t0 > timeout:
+            partial = True
+            break
+        curr = stack.pop()
+        try:
+            with os.scandir(curr) as it:
+                for entry in it:
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            dirs_count += 1
+                            stack.append(entry.path)
+                        else:
+                            total += entry.stat().st_size
+                            files_count += 1
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    return total, files_count, dirs_count, partial
+
+def scan_folder_children(target_path, timeout_per_item=1.5):
+    """
+    Scans immediate children (files & folders) of target_path and calculates sizes.
+    Returns sorted list by size descending for disk space analysis tree.
+    """
+    target_path = os.path.abspath(target_path)
+    if not os.path.exists(target_path):
+        return {'ok': False, 'error': f'Path does not exist: {target_path}', 'items': []}
+
+    items = []
+    total_size = 0
+    skipped_names = {'$recycle.bin', 'system volume information', 'pagefile.sys', 'hiberfil.sys', 'dumpstack.log.tmp'}
+
+    try:
+        with os.scandir(target_path) as it:
+            raw_entries = list(it)
+    except Exception as e:
+        return {'ok': False, 'error': str(e), 'items': []}
+
+    for entry in raw_entries:
+        try:
+            name = entry.name
+            if name.lower() in skipped_names:
+                continue
+
+            full_p = entry.path
+            is_d = entry.is_dir(follow_symlinks=False)
+            if is_d:
+                sz, fc, dc, partial = fast_folder_size(full_p, timeout=timeout_per_item)
+                items.append({
+                    'name': name,
+                    'path': full_p,
+                    'is_dir': True,
+                    'size': sz,
+                    'size_formatted': format_size_human(sz),
+                    'files_count': fc,
+                    'subdirs_count': dc,
+                    'is_partial': partial
+                })
+                total_size += sz
+            else:
+                sz = entry.stat().st_size
+                items.append({
+                    'name': name,
+                    'path': full_p,
+                    'is_dir': False,
+                    'size': sz,
+                    'size_formatted': format_size_human(sz),
+                    'files_count': 1,
+                    'subdirs_count': 0,
+                    'is_partial': False
+                })
+                total_size += sz
+        except Exception:
+            pass
+
+    items.sort(key=lambda x: x['size'], reverse=True)
+    for it in items:
+        it['percent'] = round((it['size'] / total_size * 100), 1) if total_size > 0 else 0
+
+    return {
+        'ok': True,
+        'path': target_path,
+        'total_scanned_size': total_size,
+        'total_scanned_formatted': format_size_human(total_size),
+        'items_count': len(items),
+        'items': items
     }
 
 def get_services_list(force_refresh=False):
@@ -523,6 +635,25 @@ def toggle_firewall_rule(rule_name, enable=True):
     except Exception as e:
         return {'ok': False, 'error': str(e)}
 
+def launch_browser_url(url):
+    url = (url or '').strip()
+    if not url:
+        return False
+    try:
+        firefox_paths = [
+            r'C:\Program Files\Mozilla Firefox\firefox.exe',
+            r'C:\Program Files (x86)\Mozilla Firefox\firefox.exe'
+        ]
+        firefox_exe = next((p for p in firefox_paths if os.path.exists(p)), 'firefox.exe')
+        subprocess.Popen([firefox_exe, url], shell=False)
+        return True
+    except Exception as e:
+        try:
+            os.system(f'start "" "{url}"')
+            return True
+        except Exception:
+            return False
+
 # ==================== HTTP SERVER HANDLER ====================
 
 class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
@@ -583,6 +714,13 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
                 'drives': drives,
                 'system': get_system_summary()
             })
+
+        elif path in ['/api/drives/analyze', '/api/analyze/tree']:
+            target = query.get('path', [''])[0].strip()
+            if not target:
+                target = 'C:\\'
+            res = scan_folder_children(target)
+            self._send_json(200, res)
 
         elif path in ['/api/system', '/system']:
             self._send_json(200, {
@@ -651,6 +789,86 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
                 'items': items
             })
 
+        elif path in ['/api/open-url', '/api/open']:
+            target_url = query.get('url', [''])[0].strip()
+            ok = launch_browser_url(target_url)
+            self._send_json(200 if ok else 400, {'ok': ok, 'url': target_url})
+
+        # ==================== GOOGLE OAUTH & DRIVE SYNC ====================
+        elif path in ['/api/auth/google/url']:
+            if not google_sync:
+                self._send_json(500, {'ok': False, 'error': 'ماژول گوگل همگام‌سازی لود نشد.'})
+                return
+            url, err = google_sync.get_auth_url()
+            if err:
+                self._send_json(400, {'ok': False, 'error': err})
+            else:
+                self._send_json(200, {'ok': True, 'url': url})
+
+        elif path in ['/api/auth/google/status']:
+            status = google_sync.get_sync_status() if google_sync else {'connected': False}
+            self._send_json(200, {'ok': True, **status})
+
+        elif path in ['/api/auth/google/callback']:
+            code = query.get('code', [''])[0]
+            err_param = query.get('error', [''])[0]
+            if err_param:
+                html = f"""<!DOCTYPE html><html dir="rtl"><body style="background:#0f172a;color:#ef4444;font-family:sans-serif;padding:30px;text-align:center;">
+                <h2>خطا در ورود به گوگل</h2><p>{err_param}</p></body></html>"""
+                body_b = html.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(body_b)))
+                self.end_headers()
+                self.wfile.write(body_b)
+                return
+
+            ok, msg = google_sync.exchange_code_for_tokens(code) if google_sync else (False, 'ماژول همگام‌سازی در دسترس نیست.')
+            title = "اتصال به حساب گوگل برقرار شد" if ok else "خطا در اتصال به گوگل"
+            color = "#34d399" if ok else "#ef4444"
+            html = f"""<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>{title}</title>
+  <style>
+    body {{ background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; user-select: none; }}
+    .card {{ background: #020617; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 20px; padding: 36px 30px; text-align: center; max-width: 440px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); }}
+    h2 {{ color: {color}; margin-top: 0; font-size: 20px; }}
+    p {{ color: #cbd5e1; font-size: 13px; line-height: 1.6; margin-bottom: 15px; }}
+    .sub {{ color: #64748b; font-size: 11px; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>{"✅ اتصال با موفقیت برقرار شد" if ok else "❌ خطا در ورود به حساب"}</h2>
+    <p>{msg}</p>
+    <p class="sub">این پنجره به صورت خودکار بسته می‌شود...</p>
+    <script>
+      try {{
+        if (window.opener) {{
+          window.opener.postMessage({{ type: 'GOOGLE_AUTH_RESULT', ok: {'true' if ok else 'false'} }}, '*');
+          setTimeout(() => window.close(), 1600);
+        }}
+      }} catch (e) {{}}
+    </script>
+  </div>
+</body>
+</html>"""
+            body_b = html.encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body_b)))
+            self.end_headers()
+            self.wfile.write(body_b)
+
+        elif path in ['/api/sync/google-drive/download']:
+            if not google_sync:
+                self._send_json(500, {'ok': False, 'error': 'ماژول گوگل همگام‌سازی لود نشد.'})
+                return
+            res = google_sync.download_backup_from_drive()
+            self._send_json(200 if res.get('ok') else 400, res)
+
         else:
             self._send_json(404, {
                 'ok': False,
@@ -711,6 +929,23 @@ class WindowsAgentHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json(200, {'ok': ok, 'count': len(items)})
             else:
                 self._send_json(400, {'ok': False, 'error': 'لیست آیتم‌ها معتبر نیست.'})
+
+        elif path in ['/api/open-url', '/api/open']:
+            target_url = data.get('url', '').strip()
+            ok = launch_browser_url(target_url)
+            self._send_json(200 if ok else 400, {'ok': ok, 'url': target_url})
+
+        elif path in ['/api/auth/google/logout']:
+            ok = google_sync.logout() if google_sync else True
+            self._send_json(200, {'ok': ok})
+
+        elif path in ['/api/sync/google-drive/upload']:
+            if not google_sync:
+                self._send_json(500, {'ok': False, 'error': 'ماژول گوگل همگام‌سازی لود نشد.'})
+                return
+            backup_pkg = data.get('backup') or data
+            res = google_sync.upload_backup_to_drive(backup_pkg)
+            self._send_json(200 if res.get('ok') else 400, res)
 
         else:
             self._send_json(404, {
