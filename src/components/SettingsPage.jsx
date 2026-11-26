@@ -1002,6 +1002,28 @@ export default function SettingsPage() {
                 </button>
               </div>
 
+              {/* Scope Warning if Drive Scope is Missing */}
+              {googleStatus.has_drive_scope === false && (
+                <div className="p-4 rounded-2xl bg-[#f59e0b]/15 border border-[#f59e0b]/40 text-xs text-[#fbbf24] flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="space-y-1.5">
+                    <div className="font-bold text-sm text-[#fef08a]">⚠️ مجوز دسترسی به Google Drive فعال نیست!</div>
+                    <p className="text-[11px] text-[#cbd5e1] leading-relaxed">
+                      شما با موفقیت به حساب گوگل لاگین شده‌اید، اما در صفحه تایید دسترسی‌های گوگل، تیک گزینه دسترسی به Google Drive علامت نخورده است. به همین دلیل گوگل اجازه خواندن و نوشتن فایل در گوگل درایو را نمی‌دهد.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        await handleGoogleLogout();
+                        setTimeout(handleGoogleLogin, 400);
+                      }}
+                      className="mt-1 px-3.5 py-1.5 rounded-xl bg-[#f59e0b] hover:bg-[#d97706] text-[#0f172a] font-bold text-xs transition shadow-sm cursor-pointer"
+                    >
+                      ورود مجدد با تایید تیک دسترسی Google Drive
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons: Sync Now vs Restore from Cloud */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button

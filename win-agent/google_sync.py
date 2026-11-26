@@ -23,7 +23,8 @@ SCOPES = [
     'openid',
     'https://www.googleapis.com/auth/userinfo.profile',
     'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/drive.appdata'
+    'https://www.googleapis.com/auth/drive.appdata',
+    'https://www.googleapis.com/auth/drive.file'
 ]
 
 def load_client_config():
@@ -51,6 +52,7 @@ def make_http_request(url, data=None, headers=None, method=None, timeout=12):
     """
     Dual-connection executor: Tries direct connection first,
     falls back seamlessly to local HTTP proxy on 127.0.0.1:10809 if needed.
+    Correctly extracts Google API error JSON bodies on HTTPError (400, 403, etc.)
     """
     req_headers = {
         'User-Agent': 'Mohrez-Browser-Assistant/2.0'
@@ -63,6 +65,14 @@ def make_http_request(url, data=None, headers=None, method=None, timeout=12):
         req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status, resp.read().decode('utf-8')
+    except urllib.error.HTTPError as e_http:
+        try:
+            err_body = e_http.read().decode('utf-8')
+            err_json = json.loads(err_body)
+            msg = err_json.get('error', {}).get('message') or err_body
+        except Exception:
+            msg = str(e_http)
+        raise Exception(f"Google API Error ({e_http.code}): {msg}")
     except Exception as e_direct:
         # 2. Fallback to local HTTP proxy
         try:
@@ -74,8 +84,16 @@ def make_http_request(url, data=None, headers=None, method=None, timeout=12):
             req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
             with opener.open(req, timeout=timeout) as resp:
                 return resp.status, resp.read().decode('utf-8')
+        except urllib.error.HTTPError as e_http2:
+            try:
+                err_body = e_http2.read().decode('utf-8')
+                err_json = json.loads(err_body)
+                msg = err_json.get('error', {}).get('message') or err_body
+            except Exception:
+                msg = str(e_http2)
+            raise Exception(f"Google API Error ({e_http2.code}): {msg}")
         except Exception as e_proxy:
-            raise Exception(f"Network error: Direct ({e_direct}), Proxy ({e_proxy})")
+            raise Exception(f"خطای شبکه: اتصال مستقیم ناموفق بود ({e_direct})")
 
 def get_auth_url(state='mohrez_sync'):
     cfg = load_client_config()
@@ -217,11 +235,15 @@ def get_sync_status():
         }
 
     profile = tokens.get('profile', {})
+    scope = tokens.get('scope', '') or ''
+    has_drive = ('drive' in scope) or ('drive.appdata' in scope) or ('drive.file' in scope)
     return {
         'connected': True,
         'email': profile.get('email'),
         'name': profile.get('name'),
         'picture': profile.get('picture'),
+        'has_drive_scope': has_drive,
+        'scope': scope,
         'last_sync': meta.get('last_sync'),
         'last_sync_size': meta.get('last_sync_size'),
         'file_id': meta.get('file_id')
@@ -258,9 +280,21 @@ def find_backup_file_id(access_token):
 
 def upload_backup_to_drive(backup_package):
     """Uploads or updates the JSON backup file in Google Drive AppData folder."""
+    tokens = load_tokens()
+    if not tokens or 'access_token' not in tokens:
+        return {'ok': False, 'error': 'حساب گوگل متصل نیست یا توکن منقضی شده است.'}
+
+    scope = tokens.get('scope', '') or ''
+    if 'drive' not in scope:
+        return {
+            'ok': False,
+            'insufficient_scope': True,
+            'error': 'مجوز Google Drive به این نشست داده نشده است! لطفاً روی «قطع اتصال» کلیک کرده و مجدداً دکمه «ورود با حساب گوگل» را بزنید و در صفحه مجوزهای گوگل، حتماً تیک گزینه اجازه دسترسی به Google Drive را علامت بزنید.'
+        }
+
     access_token = get_valid_access_token()
     if not access_token:
-        return {'ok': False, 'error': 'حساب گوگل متصل نیست یا توکن منقضی شده است.'}
+        return {'ok': False, 'error': 'توکن دسترسی معتبر نیست. لطفاً مجدداً وارد حساب شوید.'}
 
     json_str = json.dumps(backup_package, ensure_ascii=False, indent=2)
     payload_bytes = json_str.encode('utf-8')
@@ -325,6 +359,18 @@ def upload_backup_to_drive(backup_package):
 
 def download_backup_from_drive():
     """Downloads the latest backup package from Google Drive AppData folder."""
+    tokens = load_tokens()
+    if not tokens or 'access_token' not in tokens:
+        return {'ok': False, 'error': 'حساب گوگل متصل نیست.'}
+
+    scope = tokens.get('scope', '') or ''
+    if 'drive' not in scope:
+        return {
+            'ok': False,
+            'insufficient_scope': True,
+            'error': 'مجوز Google Drive در این نشست فعال نیست. لطفاً یک‌بار از حساب خارج شده و مجدداً با علامت زدن تیک Google Drive وارد شوید.'
+        }
+
     access_token = get_valid_access_token()
     if not access_token:
         return {'ok': False, 'error': 'حساب گوگل متصل نیست.'}
