@@ -9,7 +9,6 @@ import { fetchAutofillItems, saveAutofillItems } from '../services/windowsAgentS
 const DEFAULT_SETTINGS = {
   showIpInAddressBar: true,
   tab_ip_badge_enabled: true,
-  showIpInTabTitle: true,
   ipDisplayFormat: 'both'
 };
 
@@ -473,11 +472,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="px-3 py-1 bg-[#1e293b] rounded-t-lg border-t border-x border-[#ffffff]/20 text-[#cbd5e1] text-[11px] flex items-center gap-2 truncate max-w-xs">
                     <span className="w-2 h-2 rounded-full bg-[#38bdf8]" />
-                    <span>
-                      {isIpInAddressBarActive && settings.showIpInTabTitle !== false 
-                        ? `[${ipData.clientIp}] New Tab` 
-                        : 'New Tab'}
-                    </span>
+                    <span>New Tab</span>
                   </div>
                 </div>
 
@@ -508,13 +503,13 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#ffffff]/10">
               <div className="p-3.5 rounded-2xl bg-[#0f172a]/40 border border-[#ffffff]/5 flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-bold text-[#ffffff]">افزودن آی‌پی به عنوان تب مرورگر</div>
-                  <div className="text-[11px] text-[#94a3b8]">[IP] Page Title</div>
+                  <div className="text-xs font-bold text-[#ffffff]">نشان تولبار و پاپ‌آپ آی‌پی</div>
+                  <div className="text-[11px] text-[#94a3b8]">نشانگر و پاپ‌آپ نوار آدرس و ابزار مرورگر</div>
                 </div>
                 <input
                   type="checkbox"
-                  checked={settings.showIpInTabTitle !== false}
-                  onChange={(e) => handleUpdateSetting('showIpInTabTitle', e.target.checked)}
+                  checked={settings.showIpInAddressBar !== false}
+                  onChange={(e) => handleUpdateSetting('showIpInAddressBar', e.target.checked)}
                   className="w-4 h-4 accent-[#38bdf8] cursor-pointer"
                 />
               </div>
