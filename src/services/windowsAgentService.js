@@ -15,25 +15,49 @@ export async function findActiveAgentPort() {
       const res = await fetch(`http://127.0.0.1:${cachedPort}/api/health`, {
         signal: AbortSignal.timeout(1000)
       });
-      if (res.ok) return cachedPort;
+      if (res.ok) {
+        const d = await res.json();
+        if (d.service && d.service.includes('Windows Tools')) {
+          return cachedPort;
+        }
+      }
     } catch {}
     cachedPort = null;
   }
 
+  // 1. Strictly prioritize 23157 (standard win-agent port where Google OAuth is registered)
+  try {
+    const res = await fetch(`http://127.0.0.1:23157/api/health`, {
+      signal: AbortSignal.timeout(1200)
+    });
+    if (res.ok) {
+      const d = await res.json();
+      if (d.service && d.service.includes('Windows Tools')) {
+        cachedPort = 23157;
+        return 23157;
+      }
+    }
+  } catch {}
+
+  // 2. Scan fallback ports but verify service name (skip 23159 site-ip-service)
   for (let offset = 0; offset < MAX_PORT_ATTEMPTS; offset++) {
     const port = START_PORT + offset;
+    if (port === 23159) continue; // Never assign site-ip-service as win-agent!
     try {
       const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
         signal: AbortSignal.timeout(600)
       });
       if (res.ok) {
-        cachedPort = port;
-        return port;
+        const d = await res.json();
+        if (d.service && d.service.includes('Windows Tools')) {
+          cachedPort = port;
+          return port;
+        }
       }
     } catch {}
   }
 
-  return null;
+  return 23157;
 }
 
 export async function fetchSystemDrives() {
