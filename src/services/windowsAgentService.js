@@ -377,7 +377,7 @@ export async function uploadBackupToGoogleDrive(backupPackage) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ backup: backupPackage }),
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(60000)
   });
   const data = await res.json();
   if (!res.ok || !data.ok) {
@@ -390,7 +390,7 @@ export async function downloadBackupFromGoogleDrive() {
   const port = await findActiveAgentPort();
   if (!port) throw new Error('سرویس پس‌زمینه پایتون در دسترس نیست.');
   const res = await fetch(`http://127.0.0.1:${port}/api/sync/google-drive/download`, {
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(60000)
   });
   const data = await res.json();
   if (!res.ok || !data.ok) {

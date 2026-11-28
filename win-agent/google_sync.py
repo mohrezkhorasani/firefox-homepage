@@ -298,20 +298,40 @@ def upload_backup_to_drive(backup_package):
 
     json_str = json.dumps(backup_package, ensure_ascii=False, indent=2)
     payload_bytes = json_str.encode('utf-8')
-    existing_id, existing_meta = find_backup_file_id(access_token)
+
+    # Fast path: Check if file_id is already cached to avoid an extra 18-second search roundtrip!
+    existing_id = None
+    if os.path.exists(SYNC_META_FILE):
+        try:
+            with open(SYNC_META_FILE, 'r', encoding='utf-8') as f:
+                meta = json.load(f)
+                existing_id = meta.get('file_id')
+        except Exception:
+            pass
+
+    if not existing_id:
+        existing_id, existing_meta = find_backup_file_id(access_token)
 
     try:
+        file_id = None
         if existing_id:
-            # Update existing file content
-            url = f"https://www.googleapis.com/upload/drive/v3/files/{existing_id}?uploadType=media"
-            headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Content-Type': 'application/json; charset=utf-8'
-            }
-            status, body = make_http_request(url, data=payload_bytes, headers=headers, method='PATCH')
-            file_meta = json.loads(body)
-            file_id = file_meta.get('id', existing_id)
-        else:
+            try:
+                # Direct 1-step PATCH update
+                url = f"https://www.googleapis.com/upload/drive/v3/files/{existing_id}?uploadType=media"
+                headers = {
+                    'Authorization': f'Bearer {access_token}',
+                    'Content-Type': 'application/json; charset=utf-8'
+                }
+                status, body = make_http_request(url, data=payload_bytes, headers=headers, method='PATCH', timeout=45)
+                file_meta = json.loads(body)
+                file_id = file_meta.get('id', existing_id)
+            except Exception as e_patch:
+                if '404' in str(e_patch) or 'not found' in str(e_patch).lower():
+                    existing_id = None
+                else:
+                    raise e_patch
+
+        if not existing_id:
             # Create new file in appDataFolder (Multipart)
             boundary = '-------MohrezBoundarySync' + str(int(time.time()))
             metadata = {
@@ -334,7 +354,7 @@ def upload_backup_to_drive(backup_package):
                 'Authorization': f'Bearer {access_token}',
                 'Content-Type': f'multipart/related; boundary={boundary}'
             }
-            status, body = make_http_request(url, data=multipart_data, headers=headers, method='POST')
+            status, body = make_http_request(url, data=multipart_data, headers=headers, method='POST', timeout=45)
             file_meta = json.loads(body)
             file_id = file_meta.get('id')
 
